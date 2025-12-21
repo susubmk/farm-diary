@@ -1,9 +1,24 @@
 /* eslint-disable no-restricted-globals */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar, Plus, Edit2, Trash2, Search, Clock, MapPin, X, Camera, Bug, DollarSign } from 'lucide-react';
 
 export default function FarmDiary() {
   const [entries, setEntries] = useState([]);
+  useEffect(() => {
+  const saved = localStorage.getItem('farmDiaryEntries');
+  if (saved) {
+    try {
+      setEntries(JSON.parse(saved));
+    } catch (error) {
+      console.error('데이터 불러오기 실패:', error);
+    }
+  }
+}, []);
+
+// 데이터가 변경될 때마다 localStorage에 저장
+useEffect(() => {
+  localStorage.setItem('farmDiaryEntries', JSON.stringify(entries));
+}, [entries]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
