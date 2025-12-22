@@ -490,29 +490,36 @@ export default function App() {
         )}
 
         {currentView === 'pollination' && (
-          <div className="bg-white rounded-lg shadow-lg p-6 overflow-x-auto">
-            <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                <h2 className="text-xl md:text-2xl font-bold text-gray-800">수정작업 타임라인</h2>
+          <div className="space-y-4">
+            {/* 년도 선택 필터 */}
+            <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg shadow-lg p-4">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <label className="text-white font-bold text-lg">📅 년도 선택:</label>
                 <select
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                  className="w-32 px-3 py-2 border-2 border-green-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 font-bold text-green-700 bg-green-50"
+                  className="w-full sm:w-48 px-4 py-3 border-3 border-white rounded-lg focus:outline-none focus:ring-4 focus:ring-white font-bold text-xl text-green-700 bg-white shadow-lg"
                 >
                   {Array.from({length: new Date().getFullYear() - 2019}, (_, i) => 2020 + i).reverse().map(year => (
                     <option key={year} value={year}>{year}년</option>
                   ))}
                 </select>
               </div>
-              <div className="flex flex-wrap gap-2 md:gap-3 text-sm">
-                {areaOptions.map(area => (
-                  <div key={area} className="flex items-center gap-2">
-                    <div className={`w-4 h-4 ${areaColors[area]} rounded`}></div>
-                    <span className="font-medium">{area}</span>
-                  </div>
-                ))}
-              </div>
             </div>
+
+            {/* 타임라인 */}
+            <div className="bg-white rounded-lg shadow-lg p-6 overflow-x-auto">
+              <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <h2 className="text-xl md:text-2xl font-bold text-gray-800">수정작업 타임라인</h2>
+                <div className="flex flex-wrap gap-2 md:gap-3 text-sm">
+                  {areaOptions.map(area => (
+                    <div key={area} className="flex items-center gap-2">
+                      <div className={`w-4 h-4 ${areaColors[area]} rounded`}></div>
+                      <span className="font-medium">{area}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             <div className="min-w-max">
               <div className="flex mb-2">
                 <div className="w-16 text-xs font-bold text-gray-700 flex items-center justify-center border-r-2">월</div>
@@ -547,33 +554,41 @@ export default function App() {
               ))}
             </div>
             <div className="mt-4 text-sm text-gray-600">💡 각 날짜의 색상 막대는 수정작업 작업을 나타냅니다.</div>
+            </div>
           </div>
         )}
 
         {currentView === 'pesticide' && (
-          <div className="bg-white rounded-lg shadow-lg p-6 overflow-x-auto">
-            <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                <h2 className="text-xl md:text-2xl font-bold text-gray-800">병해충 방제 타임라인</h2>
+          <div className="space-y-4">
+            {/* 년도 선택 필터 */}
+            <div className="bg-gradient-to-r from-red-500 to-pink-600 rounded-lg shadow-lg p-4">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <label className="text-white font-bold text-lg">📅 년도 선택:</label>
                 <select
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                  className="w-32 px-3 py-2 border-2 border-green-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 font-bold text-green-700 bg-green-50"
+                  className="w-full sm:w-48 px-4 py-3 border-3 border-white rounded-lg focus:outline-none focus:ring-4 focus:ring-white font-bold text-xl text-red-700 bg-white shadow-lg"
                 >
                   {Array.from({length: new Date().getFullYear() - 2019}, (_, i) => 2020 + i).reverse().map(year => (
                     <option key={year} value={year}>{year}년</option>
                   ))}
                 </select>
               </div>
-              <div className="flex flex-wrap gap-2 md:gap-3 text-sm">
-                {areaOptions.map(area => (
-                  <div key={area} className="flex items-center gap-2">
-                    <div className={`w-4 h-4 ${areaColors[area]} rounded`}></div>
-                    <span className="font-medium">{area}</span>
-                  </div>
-                ))}
-              </div>
             </div>
+
+            {/* 타임라인 */}
+            <div className="bg-white rounded-lg shadow-lg p-6 overflow-x-auto">
+              <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <h2 className="text-xl md:text-2xl font-bold text-gray-800">병해충 방제 타임라인</h2>
+                <div className="flex flex-wrap gap-2 md:gap-3 text-sm">
+                  {areaOptions.map(area => (
+                    <div key={area} className="flex items-center gap-2">
+                      <div className={`w-4 h-4 ${areaColors[area]} rounded`}></div>
+                      <span className="font-medium">{area}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             <div className="min-w-max">
               <div className="flex mb-2">
                 <div className="w-16 text-xs font-bold text-gray-700 flex items-center justify-center border-r-2">월</div>
@@ -608,6 +623,7 @@ export default function App() {
               ))}
             </div>
             <div className="mt-4 text-sm text-gray-600">💡 각 날짜의 색상 막대는 병해충 방제 작업을 나타냅니다.</div>
+            </div>
           </div>
         )}
         {currentView === 'sales' && (
@@ -699,21 +715,26 @@ export default function App() {
               </div>
             )}
 
-            <div className="bg-white rounded-lg shadow-lg p-6">
-              <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <div className="flex items-center gap-3">
-                  <DollarSign className="w-7 h-7 text-green-600" />
-                  <h2 className="text-xl md:text-2xl font-bold text-gray-800">판매 통계</h2>
-                </div>
+            {/* 년도 선택 필터 */}
+            <div className="bg-gradient-to-r from-yellow-500 to-amber-600 rounded-lg shadow-lg p-4">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <label className="text-white font-bold text-lg">📅 년도 선택:</label>
                 <select
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                  className="w-32 px-3 py-2 border-2 border-yellow-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 font-bold text-yellow-700 bg-yellow-50"
+                  className="w-full sm:w-48 px-4 py-3 border-3 border-white rounded-lg focus:outline-none focus:ring-4 focus:ring-white font-bold text-xl text-yellow-700 bg-white shadow-lg"
                 >
                   {Array.from({length: new Date().getFullYear() - 2019}, (_, i) => 2020 + i).reverse().map(year => (
                     <option key={year} value={year}>{year}년</option>
                   ))}
                 </select>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-lg p-6">
+              <div className="mb-6 flex items-center gap-3">
+                <DollarSign className="w-7 h-7 text-green-600" />
+                <h2 className="text-xl md:text-2xl font-bold text-gray-800">판매 통계</h2>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 {salesLocations.map(location => (
