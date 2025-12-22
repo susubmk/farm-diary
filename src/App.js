@@ -28,7 +28,7 @@ export default function App() {
   useEffect(() => {
     document.title = '참뜰리에';
   }, []);
-  const workTypeOptions = ['파종', '정식', '인공수정', '물주기', '비료주기', '제초', '병해충 방제', '수확', '기타'];
+  const workTypeOptions = ['파종', '정식', '수정작업', '물주기', '비료주기', '제초', '병해충 방제', '수확', '기타'];
   const areaOptions = ['10동', '4동', '집뒤', '집앞'];
   const salesLocations = ['광주경매장', '용암 공판장', '원예'];
   const areaColors = {
@@ -101,8 +101,8 @@ export default function App() {
       alert('날짜, 작물, 작업종류, 날씨, 내용을 입력해주세요!');
       return;
     }
-    if (formData.workTypes.includes('인공수정') && formData.areas.length === 0) {
-      alert('인공수정 작업은 구역을 선택해주세요!');
+    if (formData.workTypes.includes('수정작업') && formData.areas.length === 0) {
+      alert('수정작업 작업은 구역을 선택해주세요!');
       return;
     }
     const entryData = { ...formData, date: finalDate, createdAt: new Date().toISOString() };
@@ -207,7 +207,7 @@ export default function App() {
     );
   }).sort((a, b) => new Date(b.date) - new Date(a.date));
 
-  const pollinationEntries = entries.filter(e => e.workTypes && e.workTypes.includes('인공수정'));
+  const pollinationEntries = entries.filter(e => e.workTypes && e.workTypes.includes('수정작업'));
   const pesticideEntries = entries.filter(e => e.workTypes && e.workTypes.includes('병해충 방제'));
   const salesEntries = entries.filter(e => e.salesLocation && e.salesAmount && e.salesBoxes);
 
@@ -354,7 +354,7 @@ export default function App() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">구역 {formData.workTypes.includes('인공수정') && <span className="text-red-500">*</span>}</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">구역 {formData.workTypes.includes('수정작업') && <span className="text-red-500">*</span>}</label>
                 <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
                     {areaOptions.map(area => (
@@ -440,7 +440,7 @@ export default function App() {
                       <div className="flex gap-2 mb-3 flex-wrap">
                         <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">{entry.crop}</span>
                         {entry.workTypes && entry.workTypes.map(type => (
-                          <span key={type} className={`px-3 py-1 rounded-full text-sm font-medium ${type === '인공수정' ? 'bg-pink-100 text-pink-800' : type === '병해충 방제' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>{type}</span>
+                          <span key={type} className={`px-3 py-1 rounded-full text-sm font-medium ${type === '수정작업' ? 'bg-pink-100 text-pink-800' : type === '병해충 방제' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>{type}</span>
                         ))}
                         {entry.areas && entry.areas.map(area => (
                           <span key={area} className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1">
@@ -485,7 +485,7 @@ export default function App() {
         {currentView === 'pollination' && (
           <div className="bg-white rounded-lg shadow-lg p-6 overflow-x-auto">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-800">{currentYear}년 인공수정 타임라인</h2>
+              <h2 className="text-2xl font-bold text-gray-800">{currentYear}년 수정작업 타임라인</h2>
               <div className="flex gap-3 text-sm">
                 {areaOptions.map(area => (
                   <div key={area} className="flex items-center gap-2">
@@ -508,7 +508,7 @@ export default function App() {
                   {Array.from({length: 31}, (_, dayIndex) => {
                     const day = dayIndex + 1;
                     const isValidDay = day <= daysInMonth[monthIndex];
-                    const pollinations = isValidDay ? getEntriesByDate(currentYear, monthIndex, day, '인공수정') : [];
+                    const pollinations = isValidDay ? getEntriesByDate(currentYear, monthIndex, day, '수정작업') : [];
                     const hasData = pollinations.length > 0;
                     return (
                       <div key={day} className={`w-8 h-10 flex items-center justify-center text-xs relative ${!isValidDay ? 'bg-gray-100' : ''}`}>
@@ -528,7 +528,7 @@ export default function App() {
                 </div>
               ))}
             </div>
-            <div className="mt-4 text-sm text-gray-600">💡 각 날짜의 색상 막대는 인공수정 작업을 나타냅니다.</div>
+            <div className="mt-4 text-sm text-gray-600">💡 각 날짜의 색상 막대는 수정작업 작업을 나타냅니다.</div>
           </div>
         )}
 
@@ -763,8 +763,8 @@ export default function App() {
                 <div className="text-sm text-gray-600">전체 일지</div>
               </div>
               <div className="bg-pink-50 p-4 rounded-lg">
-                <div className="text-2xl font-bold text-pink-700">{entries.filter(e => e.workTypes && e.workTypes.includes('인공수정')).length}</div>
-                <div className="text-sm text-gray-600">인공수정</div>
+                <div className="text-2xl font-bold text-pink-700">{entries.filter(e => e.workTypes && e.workTypes.includes('수정작업')).length}</div>
+                <div className="text-sm text-gray-600">수정작업</div>
               </div>
               <div className="bg-red-50 p-4 rounded-lg">
                 <div className="text-2xl font-bold text-red-700">{entries.filter(e => e.workTypes && e.workTypes.includes('병해충 방제')).length}</div>
