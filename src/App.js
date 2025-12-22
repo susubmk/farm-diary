@@ -212,10 +212,17 @@ export default function App() {
   const pesticideEntries = entries.filter(e => e.workTypes && e.workTypes.includes('병해충 방제'));
   const salesEntries = entries.filter(e => e.salesLocation && e.salesAmount && e.salesBoxes);
 
+  // 선택된 년도의 판매 기록만 필터링
+  const filteredSalesEntries = salesEntries.filter(e => {
+    if (!e.date) return false;
+    const entryYear = parseInt(e.date.split('-')[0]);
+    return entryYear === selectedYear;
+  });
+
   const getSalesStats = () => {
     const stats = {};
     salesLocations.forEach(location => {
-      const locationSales = salesEntries.filter(e => e.salesLocation === location);
+      const locationSales = filteredSalesEntries.filter(e => e.salesLocation === location);
       const totalAmount = locationSales.reduce((sum, e) => sum + parseFloat(e.salesAmount || 0), 0);
       const totalBoxes = locationSales.reduce((sum, e) => sum + parseInt(e.salesBoxes || 0), 0);
       stats[location] = { totalAmount, totalBoxes };
@@ -693,9 +700,21 @@ export default function App() {
             )}
 
             <div className="bg-white rounded-lg shadow-lg p-6">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                <DollarSign className="w-7 h-7 text-green-600" />판매 통계
-              </h2>
+              <div className="mb-6 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <DollarSign className="w-7 h-7 text-green-600" />
+                  <h2 className="text-2xl font-bold text-gray-800">판매 통계</h2>
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                    className="px-3 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 font-medium"
+                  >
+                    {Array.from({length: new Date().getFullYear() - 2019}, (_, i) => 2020 + i).reverse().map(year => (
+                      <option key={year} value={year}>{year}년</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 {salesLocations.map(location => (
                   <div key={location} className="bg-gradient-to-br from-blue-50 to-blue-100 p-5 rounded-lg border-2 border-blue-200">
@@ -733,11 +752,11 @@ export default function App() {
 
             <div className="bg-white rounded-lg shadow-lg p-6">
               <h3 className="text-xl font-bold text-gray-800 mb-4">판매 기록</h3>
-              {salesEntries.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">아직 판매 기록이 없습니다!</div>
+              {filteredSalesEntries.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">{selectedYear}년 판매 기록이 없습니다!</div>
               ) : (
                 <div className="space-y-3">
-                  {salesEntries.sort((a, b) => new Date(b.date) - new Date(a.date)).map(entry => (
+                  {filteredSalesEntries.sort((a, b) => new Date(b.date) - new Date(a.date)).map(entry => (
                     <div key={entry.id} className="border-l-4 border-yellow-400 bg-yellow-50 p-4 rounded-r-lg hover:bg-yellow-100 transition">
                       <div className="flex justify-between items-start mb-2">
                         <div className="flex items-center gap-3">
