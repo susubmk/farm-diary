@@ -3,6 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, Plus, Edit2, Trash2, Search, Clock, MapPin, X, Camera, Bug, DollarSign } from 'lucide-react';
 import { db } from './firebase';
 import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
+function App() {
+  useEffect(() => {
+    document.title = '참뜰리에';
+  }, []);
 
 export default function FarmDiary() {
   const [entries, setEntries] = useState([]);
