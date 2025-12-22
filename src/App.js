@@ -491,20 +491,20 @@ export default function App() {
 
         {currentView === 'pollination' && (
           <div className="bg-white rounded-lg shadow-lg p-6 overflow-x-auto">
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <h2 className="text-2xl font-bold text-gray-800">수정작업 타임라인</h2>
+            <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                <h2 className="text-xl md:text-2xl font-bold text-gray-800">수정작업 타임라인</h2>
                 <select
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                  className="px-3 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 font-medium"
+                  className="w-32 px-3 py-2 border-2 border-green-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 font-bold text-green-700 bg-green-50"
                 >
                   {Array.from({length: new Date().getFullYear() - 2019}, (_, i) => 2020 + i).reverse().map(year => (
                     <option key={year} value={year}>{year}년</option>
                   ))}
                 </select>
               </div>
-              <div className="flex gap-3 text-sm">
+              <div className="flex flex-wrap gap-2 md:gap-3 text-sm">
                 {areaOptions.map(area => (
                   <div key={area} className="flex items-center gap-2">
                     <div className={`w-4 h-4 ${areaColors[area]} rounded`}></div>
@@ -552,20 +552,20 @@ export default function App() {
 
         {currentView === 'pesticide' && (
           <div className="bg-white rounded-lg shadow-lg p-6 overflow-x-auto">
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <h2 className="text-2xl font-bold text-gray-800">병해충 방제 타임라인</h2>
+            <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                <h2 className="text-xl md:text-2xl font-bold text-gray-800">병해충 방제 타임라인</h2>
                 <select
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                  className="px-3 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 font-medium"
+                  className="w-32 px-3 py-2 border-2 border-green-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 font-bold text-green-700 bg-green-50"
                 >
                   {Array.from({length: new Date().getFullYear() - 2019}, (_, i) => 2020 + i).reverse().map(year => (
                     <option key={year} value={year}>{year}년</option>
                   ))}
                 </select>
               </div>
-              <div className="flex gap-3 text-sm">
+              <div className="flex flex-wrap gap-2 md:gap-3 text-sm">
                 {areaOptions.map(area => (
                   <div key={area} className="flex items-center gap-2">
                     <div className={`w-4 h-4 ${areaColors[area]} rounded`}></div>
@@ -700,20 +700,20 @@ export default function App() {
             )}
 
             <div className="bg-white rounded-lg shadow-lg p-6">
-              <div className="mb-6 flex items-center justify-between">
+              <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <div className="flex items-center gap-3">
                   <DollarSign className="w-7 h-7 text-green-600" />
-                  <h2 className="text-2xl font-bold text-gray-800">판매 통계</h2>
-                  <select
-                    value={selectedYear}
-                    onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                    className="px-3 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 font-medium"
-                  >
-                    {Array.from({length: new Date().getFullYear() - 2019}, (_, i) => 2020 + i).reverse().map(year => (
-                      <option key={year} value={year}>{year}년</option>
-                    ))}
-                  </select>
+                  <h2 className="text-xl md:text-2xl font-bold text-gray-800">판매 통계</h2>
                 </div>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                  className="w-32 px-3 py-2 border-2 border-yellow-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 font-bold text-yellow-700 bg-yellow-50"
+                >
+                  {Array.from({length: new Date().getFullYear() - 2019}, (_, i) => 2020 + i).reverse().map(year => (
+                    <option key={year} value={year}>{year}년</option>
+                  ))}
+                </select>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 {salesLocations.map(location => (
