@@ -11,6 +11,7 @@ export default function App() {
   const [editingId, setEditingId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentView, setCurrentView] = useState('diary');
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     useAutoDate: true,
@@ -227,9 +228,10 @@ export default function App() {
 
   const salesStats = getSalesStats();
   const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from({length: 10}, (_, i) => currentYear - 5 + i);
   const monthNames = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
   const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-  if ((currentYear % 4 === 0 && currentYear % 100 !== 0) || currentYear % 400 === 0) {
+  if ((selectedYear % 4 === 0 && selectedYear % 100 !== 0) || selectedYear % 400 === 0) {
     daysInMonth[1] = 29;
   }
 
@@ -485,7 +487,18 @@ export default function App() {
         {currentView === 'pollination' && (
           <div className="bg-white rounded-lg shadow-lg p-6 overflow-x-auto">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-800">{currentYear}년 수정작업 타임라인</h2>
+              <div className="flex items-center gap-3">
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                  className="px-4 py-2 border-2 border-gray-300 rounded-lg font-bold text-xl text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                >
+                  {yearOptions.map(year => (
+                    <option key={year} value={year}>{year}년</option>
+                  ))}
+                </select>
+                <h2 className="text-2xl font-bold text-gray-800">수정작업 타임라인</h2>
+              </div>
               <div className="flex gap-3 text-sm">
                 {areaOptions.map(area => (
                   <div key={area} className="flex items-center gap-2">
@@ -508,7 +521,7 @@ export default function App() {
                   {Array.from({length: 31}, (_, dayIndex) => {
                     const day = dayIndex + 1;
                     const isValidDay = day <= daysInMonth[monthIndex];
-                    const pollinations = isValidDay ? getEntriesByDate(currentYear, monthIndex, day, '수정작업') : [];
+                    const pollinations = isValidDay ? getEntriesByDate(selectedYear, monthIndex, day, '수정작업') : [];
                     const hasData = pollinations.length > 0;
                     return (
                       <div key={day} className={`w-8 h-10 flex items-center justify-center text-xs relative ${!isValidDay ? 'bg-gray-100' : ''}`}>
@@ -535,7 +548,18 @@ export default function App() {
         {currentView === 'pesticide' && (
           <div className="bg-white rounded-lg shadow-lg p-6 overflow-x-auto">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-800">{currentYear}년 병해충 방제 타임라인</h2>
+              <div className="flex items-center gap-3">
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                  className="px-4 py-2 border-2 border-gray-300 rounded-lg font-bold text-xl text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                >
+                  {yearOptions.map(year => (
+                    <option key={year} value={year}>{year}년</option>
+                  ))}
+                </select>
+                <h2 className="text-2xl font-bold text-gray-800">병해충 방제 타임라인</h2>
+              </div>
               <div className="flex gap-3 text-sm">
                 {areaOptions.map(area => (
                   <div key={area} className="flex items-center gap-2">
@@ -558,7 +582,7 @@ export default function App() {
                   {Array.from({length: 31}, (_, dayIndex) => {
                     const day = dayIndex + 1;
                     const isValidDay = day <= daysInMonth[monthIndex];
-                    const pesticides = isValidDay ? getEntriesByDate(currentYear, monthIndex, day, '병해충 방제') : [];
+                    const pesticides = isValidDay ? getEntriesByDate(selectedYear, monthIndex, day, '병해충 방제') : [];
                     const hasData = pesticides.length > 0;
                     return (
                       <div key={day} className={`w-8 h-10 flex items-center justify-center text-xs relative ${!isValidDay ? 'bg-gray-100' : ''}`}>
