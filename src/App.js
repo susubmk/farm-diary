@@ -3,12 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, Plus, Edit2, Trash2, Search, Clock, MapPin, X, Camera, Bug, DollarSign } from 'lucide-react';
 import { db } from './firebase';
 import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
-function App() {
-  useEffect(() => {
-    document.title = '참뜰리에';
-  }, []);
 
-export default function FarmDiary() {
+export default function App() {
   const [entries, setEntries] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [showSalesForm, setShowSalesForm] = useState(false);
@@ -29,6 +25,9 @@ export default function FarmDiary() {
     salesBoxes: ''
   });
 
+  useEffect(() => {
+    document.title = '참뜰리에';
+  }, []);
   const workTypeOptions = ['파종', '정식', '인공수정', '물주기', '비료주기', '제초', '병해충 방제', '수확', '기타'];
   const areaOptions = ['10동', '4동', '집뒤', '집앞'];
   const salesLocations = ['광주경매장', '용암 공판장', '원예'];
