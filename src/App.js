@@ -1,6 +1,6 @@
 /* eslint-disable no-restricted-globals */
 import React, { useState, useEffect } from 'react';
-import { Calendar, Plus, Edit2, Trash2, Search, Clock, MapPin, X, Camera, Bug, DollarSign, Droplets } from 'lucide-react';
+import { Calendar, Plus, Edit2, Trash2, Search, Clock, MapPin, X, Camera, Bug, DollarSign, Droplets, Grid3x3 } from 'lucide-react';
 import { db } from './firebase';
 import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
 
@@ -12,12 +12,15 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentView, setCurrentView] = useState('diary');
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [showDateRange, setShowDateRange] = useState(false);
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
+    endDate: '',
     useAutoDate: true,
     crop: '',
     workTypes: [],
-    workTime: '', // 작업 시간 추가
+    workTime: '',
     areas: [],
     weather: '',
     content: '',
@@ -31,7 +34,7 @@ export default function App() {
     document.title = '참뜰리에';
   }, []);
   
-  const workTypeOptions = ['파종', '정식', '수정작업', '물주기', '비료주기', '제초', '병해충 방제', '수확', '기타'];
+  const workTypeOptions = ['파종', '정식', '수정작업', '순정리', '물주기', '비료주기', '제초', '병해충 방제', '수확', '기타'];
   const areaOptions = ['10동', '4동', '집뒤', '집앞'];
   const salesLocations = ['광주경매장', '용암 공판장', '원예'];
   const areaColors = {
@@ -39,6 +42,19 @@ export default function App() {
     '4동': 'bg-green-500',
     '집뒤': 'bg-purple-500',
     '집앞': 'bg-orange-500'
+  };
+
+  const workTypeColors = {
+    '파종': 'bg-emerald-100 text-emerald-800',
+    '정식': 'bg-teal-100 text-teal-800',
+    '수정작업': 'bg-pink-100 text-pink-800',
+    '순정리': 'bg-indigo-100 text-indigo-800',
+    '물주기': 'bg-cyan-100 text-cyan-800',
+    '비료주기': 'bg-amber-100 text-amber-800',
+    '제초': 'bg-lime-100 text-lime-800',
+    '병해충 방제': 'bg-red-100 text-red-800',
+    '수확': 'bg-orange-100 text-orange-800',
+    '기타': 'bg-gray-100 text-gray-800'
   };
 
   useEffect(() => {
@@ -114,7 +130,17 @@ export default function App() {
       alert('물주기 또는 비료주기 작업은 시간을 입력해주세요!');
       return;
     }
-    const entryData = { ...formData, date: finalDate, createdAt: new Date().toISOString() };
+    // 날짜 범위 검증
+    if (showDateRange && formData.endDate && formData.endDate < finalDate) {
+      alert('종료 날짜는 시작 날짜보다 이후여야 합니다!');
+      return;
+    }
+    const entryData = { 
+      ...formData, 
+      date: finalDate, 
+      endDate: showDateRange ? formData.endDate : '',
+      createdAt: new Date().toISOString() 
+    };
     try {
       if (editingId) {
         await updateDoc(doc(db, 'entries', editingId), entryData);
@@ -124,6 +150,7 @@ export default function App() {
       }
       setFormData({
         date: new Date().toISOString().split('T')[0],
+        endDate: '',
         useAutoDate: true,
         crop: '',
         workTypes: [],
@@ -136,6 +163,7 @@ export default function App() {
         salesAmount: '',
         salesBoxes: ''
       });
+      setShowDateRange(false);
       setShowForm(false);
     } catch (error) {
       console.error('저장 실패:', error);
@@ -152,6 +180,7 @@ export default function App() {
     const entryData = {
       ...formData,
       date: finalDate,
+      endDate: '',
       workTypes: ['수확'],
       weather: '☀️ 맑음',
       content: `${formData.salesLocation}에 ${formData.salesBoxes}박스 판매 (${parseInt(formData.salesAmount).toLocaleString()}원)`,
@@ -166,6 +195,7 @@ export default function App() {
       }
       setFormData({
         date: new Date().toISOString().split('T')[0],
+        endDate: '',
         useAutoDate: true,
         crop: '',
         workTypes: [],
@@ -188,6 +218,7 @@ export default function App() {
   const handleEdit = (entry) => {
     setFormData({...entry, useAutoDate: false});
     setEditingId(entry.id);
+    setShowDateRange(entry.endDate ? true : false);
     if (entry.salesLocation && entry.salesAmount && entry.salesBoxes) {
       setShowSalesForm(true);
       setCurrentView('sales');
@@ -256,6 +287,18 @@ export default function App() {
     return entries.filter(e => e.date === dateStr && e.workTypes && e.workTypes.includes(workType));
   };
 
+  // 통합달력용: 특정 날짜의 모든 작업 가져오기
+  const getAllEntriesByDate = (year, month, day) => {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return entries.filter(e => {
+      // 단일 날짜 또는 범위에 포함되는지 확인
+      if (e.endDate) {
+        return e.date <= dateStr && dateStr <= e.endDate;
+      }
+      return e.date === dateStr;
+    });
+  };
+
   // 물주기, 비료주기가 필요한지 확인
   const needsWorkTime = formData.workTypes.includes('물주기') || formData.workTypes.includes('비료주기');
   
@@ -273,9 +316,11 @@ export default function App() {
                 setShowForm(!showForm);
                 setShowSalesForm(false);
                 setEditingId(null);
+                setShowDateRange(false);
                 setCurrentView('diary');
                 setFormData({
                   date: new Date().toISOString().split('T')[0],
+                  endDate: '',
                   useAutoDate: true,
                   crop: '',
                   workTypes: [],
@@ -299,6 +344,9 @@ export default function App() {
           <div className="flex gap-2 mb-4 flex-wrap">
             <button onClick={() => setCurrentView('diary')} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${currentView === 'diary' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
               <Calendar className="w-5 h-5" />일지
+            </button>
+            <button onClick={() => setCurrentView('integrated')} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${currentView === 'integrated' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+              <Grid3x3 className="w-5 h-5" />통합달력
             </button>
             <button onClick={() => setCurrentView('pollination')} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${currentView === 'pollination' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
               <Clock className="w-5 h-5" />수정 타임라인
@@ -347,7 +395,36 @@ export default function App() {
                     <span className="text-green-700 font-bold text-lg">📅 {new Date().toISOString().split('T')[0]} (오늘)</span>
                   </div>
                 ) : (
-                  <input type="date" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="date" 
+                        value={formData.date} 
+                        onChange={(e) => setFormData({...formData, date: e.target.value})} 
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" 
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowDateRange(!showDateRange)}
+                        className={`px-4 py-2 rounded-lg font-bold text-lg transition ${showDateRange ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                        title="기간 선택"
+                      >
+                        ~
+                      </button>
+                    </div>
+                    {showDateRange && (
+                      <div className="flex items-center gap-2 pl-4">
+                        <span className="text-gray-500 text-sm">~</span>
+                        <input 
+                          type="date" 
+                          value={formData.endDate} 
+                          onChange={(e) => setFormData({...formData, endDate: e.target.value})} 
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" 
+                          placeholder="종료 날짜"
+                        />
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
               <div>
@@ -472,7 +549,7 @@ export default function App() {
               </div>
               <div className="flex gap-3">
                 <button onClick={handleSubmit} className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition font-medium">{editingId ? '수정 완료' : '저장하기'}</button>
-                <button onClick={() => { setShowForm(false); setEditingId(null); }} className="px-6 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400 transition font-medium">취소</button>
+                <button onClick={() => { setShowForm(false); setEditingId(null); setShowDateRange(false); }} className="px-6 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400 transition font-medium">취소</button>
               </div>
             </div>
           </div>
@@ -490,14 +567,17 @@ export default function App() {
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <span className="text-lg font-bold text-green-700">{entry.date}</span>
+                        <span className="text-lg font-bold text-green-700">
+                          {entry.date}
+                          {entry.endDate && <span className="text-gray-500"> ~ {entry.endDate}</span>}
+                        </span>
                         {entry.workTime && <span className="text-sm font-bold text-blue-600">⏰ {entry.workTime}</span>}
                         <span className="text-2xl">{entry.weather}</span>
                       </div>
                       <div className="flex gap-2 mb-3 flex-wrap">
                         <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">{entry.crop}</span>
                         {entry.workTypes && entry.workTypes.map(type => (
-                          <span key={type} className={`px-3 py-1 rounded-full text-sm font-medium ${type === '수정작업' ? 'bg-pink-100 text-pink-800' : type === '병해충 방제' ? 'bg-red-100 text-red-800' : type === '물주기' ? 'bg-cyan-100 text-cyan-800' : type === '비료주기' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}>{type}</span>
+                          <span key={type} className={`px-3 py-1 rounded-full text-sm font-medium ${workTypeColors[type] || 'bg-gray-100 text-gray-800'}`}>{type}</span>
                         ))}
                         {entry.areas && entry.areas.map(area => (
                           <span key={area} className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1">
@@ -536,6 +616,105 @@ export default function App() {
                 </div>
               ))
             )}
+          </div>
+        )}
+
+        {currentView === 'integrated' && (
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <div className="mb-6 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                  className="px-4 py-2 border-2 border-gray-300 rounded-lg font-bold text-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  {yearOptions.map(year => (
+                    <option key={year} value={year}>{year}년</option>
+                  ))}
+                </select>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                  className="px-4 py-2 border-2 border-gray-300 rounded-lg font-bold text-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  {monthNames.map((month, idx) => (
+                    <option key={idx} value={idx}>{month}</option>
+                  ))}
+                </select>
+                <h2 className="text-2xl font-bold text-gray-800">통합 작업 달력</h2>
+              </div>
+            </div>
+            
+            {/* 범례 */}
+            <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+              <div className="text-sm font-bold text-gray-700 mb-2">작업 종류:</div>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                {workTypeOptions.map(type => (
+                  <div key={type} className="flex items-center gap-2">
+                    <div className={`w-3 h-3 rounded ${workTypeColors[type]?.replace('text-', 'bg-').split(' ')[0] || 'bg-gray-400'}`}></div>
+                    <span className="text-xs">{type}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 달력 그리드 */}
+            <div className="overflow-x-auto">
+              <div className="inline-block min-w-full">
+                {/* 요일 헤더 */}
+                <div className="grid grid-cols-7 gap-1 mb-2">
+                  {['일', '월', '화', '수', '목', '금', '토'].map(day => (
+                    <div key={day} className="text-center font-bold text-gray-700 py-2">{day}</div>
+                  ))}
+                </div>
+                
+                {/* 날짜 그리드 */}
+                <div className="grid grid-cols-7 gap-1">
+                  {(() => {
+                    const firstDay = new Date(selectedYear, selectedMonth, 1).getDay();
+                    const daysInCurrentMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+                    const cells = [];
+                    
+                    // 빈 셀 추가 (월 시작 전)
+                    for (let i = 0; i < firstDay; i++) {
+                      cells.push(<div key={`empty-${i}`} className="bg-gray-50 rounded-lg p-2 h-24"></div>);
+                    }
+                    
+                    // 날짜 셀 추가
+                    for (let day = 1; day <= daysInCurrentMonth; day++) {
+                      const dayEntries = getAllEntriesByDate(selectedYear, selectedMonth, day);
+                      const isToday = selectedYear === new Date().getFullYear() && 
+                                     selectedMonth === new Date().getMonth() && 
+                                     day === new Date().getDate();
+                      
+                      cells.push(
+                        <div key={day} className={`border-2 rounded-lg p-2 h-24 overflow-y-auto ${isToday ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white'}`}>
+                          <div className={`text-sm font-bold mb-1 ${isToday ? 'text-green-700' : 'text-gray-700'}`}>{day}</div>
+                          <div className="space-y-1">
+                            {dayEntries.map((entry, idx) => (
+                              <div key={idx} className="text-xs">
+                                {entry.workTypes && entry.workTypes.map((type, typeIdx) => (
+                                  <div key={typeIdx} className={`px-1 py-0.5 rounded text-xs mb-0.5 ${workTypeColors[type] || 'bg-gray-100 text-gray-800'}`}>
+                                    {type}
+                                    {entry.workTime && (type === '물주기' || type === '비료주기') && ` (${entry.workTime})`}
+                                  </div>
+                                ))}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                    
+                    return cells;
+                  })()}
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-4 text-sm text-gray-600">
+              💡 각 날짜에 해당하는 모든 작업이 색상별로 표시됩니다. 오늘 날짜는 초록색 테두리로 강조됩니다.
+            </div>
           </div>
         )}
 
@@ -757,6 +936,7 @@ export default function App() {
                     setEditingId(null);
                     setFormData({
                       date: new Date().toISOString().split('T')[0],
+                      endDate: '',
                       useAutoDate: true,
                       crop: '',
                       workTypes: [],
