@@ -647,14 +647,29 @@ export default function App() {
             
             {/* 범례 */}
             <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-              <div className="text-sm font-bold text-gray-700 mb-2">작업 종류:</div>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-                {workTypeOptions.map(type => (
-                  <div key={type} className="flex items-center gap-2">
-                    <div className={`w-3 h-3 rounded ${workTypeColors[type]?.replace('text-', 'bg-').split(' ')[0] || 'bg-gray-400'}`}></div>
-                    <span className="text-xs">{type}</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <div className="text-sm font-bold text-gray-700 mb-2">작업 종류:</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {workTypeOptions.map(type => (
+                      <div key={type} className="flex items-center gap-2">
+                        <div className={`w-3 h-3 rounded ${workTypeColors[type]?.replace('text-', 'bg-').split(' ')[0] || 'bg-gray-400'}`}></div>
+                        <span className="text-xs">{type}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </div>
+                <div>
+                  <div className="text-sm font-bold text-gray-700 mb-2">구역 표시:</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {areaOptions.map(area => (
+                      <div key={area} className="flex items-center gap-2">
+                        <div className={`w-3 h-3 rounded-full ${areaColors[area]}`}></div>
+                        <span className="text-xs">{area}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -694,9 +709,20 @@ export default function App() {
                             {dayEntries.map((entry, idx) => (
                               <div key={idx} className="text-xs">
                                 {entry.workTypes && entry.workTypes.map((type, typeIdx) => (
-                                  <div key={typeIdx} className={`px-1 py-0.5 rounded text-xs mb-0.5 ${workTypeColors[type] || 'bg-gray-100 text-gray-800'}`}>
-                                    {type}
-                                    {entry.workTime && (type === '물주기' || type === '비료주기') && ` (${entry.workTime})`}
+                                  <div key={typeIdx} className={`px-1 py-0.5 rounded text-xs mb-0.5 flex items-center gap-1 ${workTypeColors[type] || 'bg-gray-100 text-gray-800'}`}>
+                                    <span>{type}</span>
+                                    {entry.workTime && (type === '물주기' || type === '비료주기') && <span className="text-xs">({entry.workTime})</span>}
+                                    {entry.areas && entry.areas.length > 0 && (
+                                      <span className="flex gap-0.5 ml-1">
+                                        {entry.areas.map((area, areaIdx) => (
+                                          <span 
+                                            key={areaIdx} 
+                                            className={`w-2 h-2 rounded-full ${areaColors[area]}`}
+                                            title={area}
+                                          ></span>
+                                        ))}
+                                      </span>
+                                    )}
                                   </div>
                                 ))}
                               </div>
