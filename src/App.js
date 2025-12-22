@@ -199,6 +199,13 @@ export default function App() {
   };
 
   const filteredEntries = entries.filter(entry => {
+    // 년도 필터링
+    if (entry.date) {
+      const entryYear = parseInt(entry.date.split('-')[0]);
+      if (entryYear !== selectedYear) return false;
+    }
+
+    // 검색 필터링
     const searchLower = searchTerm.toLowerCase();
     return (
       (entry.crop && entry.crop.toLowerCase().includes(searchLower)) ||
@@ -431,9 +438,25 @@ export default function App() {
         )}
         {currentView === 'diary' && (
           <div className="space-y-4">
+            {/* 년도 선택 필터 */}
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg shadow-lg p-4">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <label className="text-white font-bold text-lg">📅 년도 선택:</label>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                  className="w-full sm:w-48 px-4 py-3 border-3 border-white rounded-lg focus:outline-none focus:ring-4 focus:ring-white font-bold text-xl text-blue-700 bg-white shadow-lg"
+                >
+                  {Array.from({length: new Date().getFullYear() - 2019}, (_, i) => 2020 + i).reverse().map(year => (
+                    <option key={year} value={year}>{year}년</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             {filteredEntries.length === 0 ? (
               <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
-                {searchTerm ? '검색 결과가 없습니다.' : '아직 작성된 일지가 없습니다!'}
+                {searchTerm ? '검색 결과가 없습니다.' : `${selectedYear}년 일지가 없습니다!`}
               </div>
             ) : (
               filteredEntries.map(entry => (
