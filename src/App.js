@@ -1,6 +1,6 @@
 /* eslint-disable no-restricted-globals */
 import React, { useState, useEffect } from 'react';
-import { Calendar, Plus, Edit2, Trash2, Search, Clock, MapPin, X, Camera, Bug, DollarSign } from 'lucide-react';
+import { Calendar, Plus, Edit2, Trash2, Search, Clock, MapPin, X, Camera, Bug, DollarSign, Droplets } from 'lucide-react';
 import { db } from './firebase';
 import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
 
@@ -17,6 +17,7 @@ export default function App() {
     useAutoDate: true,
     crop: '',
     workTypes: [],
+    workTime: '', // 작업 시간 추가
     areas: [],
     weather: '',
     content: '',
@@ -29,6 +30,7 @@ export default function App() {
   useEffect(() => {
     document.title = '참뜰리에';
   }, []);
+  
   const workTypeOptions = ['파종', '정식', '수정작업', '물주기', '비료주기', '제초', '병해충 방제', '수확', '기타'];
   const areaOptions = ['10동', '4동', '집뒤', '집앞'];
   const salesLocations = ['광주경매장', '용암 공판장', '원예'];
@@ -96,6 +98,7 @@ export default function App() {
       images: prev.images.filter(img => img.id !== imageId)
     }));
   };
+  
   const handleSubmit = async () => {
     const finalDate = formData.useAutoDate ? new Date().toISOString().split('T')[0] : formData.date;
     if (!finalDate || !formData.crop || formData.workTypes.length === 0 || !formData.weather || !formData.content) {
@@ -104,6 +107,11 @@ export default function App() {
     }
     if (formData.workTypes.includes('수정작업') && formData.areas.length === 0) {
       alert('수정작업 작업은 구역을 선택해주세요!');
+      return;
+    }
+    // 물주기나 비료주기 선택 시 시간 필수
+    if ((formData.workTypes.includes('물주기') || formData.workTypes.includes('비료주기')) && !formData.workTime) {
+      alert('물주기 또는 비료주기 작업은 시간을 입력해주세요!');
       return;
     }
     const entryData = { ...formData, date: finalDate, createdAt: new Date().toISOString() };
@@ -119,6 +127,7 @@ export default function App() {
         useAutoDate: true,
         crop: '',
         workTypes: [],
+        workTime: '',
         areas: [],
         weather: '',
         content: '',
@@ -160,6 +169,7 @@ export default function App() {
         useAutoDate: true,
         crop: '',
         workTypes: [],
+        workTime: '',
         areas: [],
         weather: '',
         content: '',
@@ -210,7 +220,13 @@ export default function App() {
 
   const pollinationEntries = entries.filter(e => e.workTypes && e.workTypes.includes('수정작업'));
   const pesticideEntries = entries.filter(e => e.workTypes && e.workTypes.includes('병해충 방제'));
-  const salesEntries = entries.filter(e => e.salesLocation && e.salesAmount && e.salesBoxes);
+  const wateringEntries = entries.filter(e => e.workTypes && (e.workTypes.includes('물주기') || e.workTypes.includes('비료주기')));
+  
+  // 판매 데이터는 선택된 년도로 필터링
+  const allSalesEntries = entries.filter(e => e.salesLocation && e.salesAmount && e.salesBoxes);
+  const salesEntries = allSalesEntries.filter(e => 
+    new Date(e.date).getFullYear() === selectedYear
+  );
 
   const getSalesStats = () => {
     const stats = {};
@@ -239,6 +255,10 @@ export default function App() {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     return entries.filter(e => e.date === dateStr && e.workTypes && e.workTypes.includes(workType));
   };
+
+  // 물주기, 비료주기가 필요한지 확인
+  const needsWorkTime = formData.workTypes.includes('물주기') || formData.workTypes.includes('비료주기');
+  
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 p-4">
       <div className="max-w-7xl mx-auto">
@@ -259,6 +279,7 @@ export default function App() {
                   useAutoDate: true,
                   crop: '',
                   workTypes: [],
+                  workTime: '',
                   areas: [],
                   weather: '',
                   content: '',
@@ -287,9 +308,13 @@ export default function App() {
               <Bug className="w-5 h-5" />방제 타임라인
               {pesticideEntries.length > 0 && <span className="bg-white text-green-600 px-2 py-0.5 rounded-full text-xs font-bold">{pesticideEntries.length}</span>}
             </button>
+            <button onClick={() => setCurrentView('watering')} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${currentView === 'watering' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+              <Droplets className="w-5 h-5" />관주/관수 타임라인
+              {wateringEntries.length > 0 && <span className="bg-white text-green-600 px-2 py-0.5 rounded-full text-xs font-bold">{wateringEntries.length}</span>}
+            </button>
             <button onClick={() => setCurrentView('sales')} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${currentView === 'sales' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
               <DollarSign className="w-5 h-5" />누적 판매금
-              {salesEntries.length > 0 && <span className="bg-white text-green-600 px-2 py-0.5 rounded-full text-xs font-bold">{salesEntries.length}</span>}
+              {allSalesEntries.length > 0 && <span className="bg-white text-green-600 px-2 py-0.5 rounded-full text-xs font-bold">{allSalesEntries.length}</span>}
             </button>
           </div>
 
@@ -355,6 +380,23 @@ export default function App() {
                   )}
                 </div>
               </div>
+              
+              {/* 물주기/비료주기 선택 시 시간 입력란 표시 */}
+              {needsWorkTime && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    작업 시간 <span className="text-red-500">*</span>
+                    <span className="text-xs text-gray-500 ml-2">(물주기/비료주기 필수)</span>
+                  </label>
+                  <input 
+                    type="time" 
+                    value={formData.workTime} 
+                    onChange={(e) => setFormData({...formData, workTime: e.target.value})} 
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                  />
+                </div>
+              )}
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">구역 {formData.workTypes.includes('수정작업') && <span className="text-red-500">*</span>}</label>
                 <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
@@ -424,6 +466,7 @@ export default function App() {
             </div>
           </div>
         )}
+        
         {currentView === 'diary' && (
           <div className="space-y-4">
             {filteredEntries.length === 0 ? (
@@ -437,12 +480,13 @@ export default function App() {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <span className="text-lg font-bold text-green-700">{entry.date}</span>
+                        {entry.workTime && <span className="text-sm font-bold text-blue-600">⏰ {entry.workTime}</span>}
                         <span className="text-2xl">{entry.weather}</span>
                       </div>
                       <div className="flex gap-2 mb-3 flex-wrap">
                         <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">{entry.crop}</span>
                         {entry.workTypes && entry.workTypes.map(type => (
-                          <span key={type} className={`px-3 py-1 rounded-full text-sm font-medium ${type === '수정작업' ? 'bg-pink-100 text-pink-800' : type === '병해충 방제' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>{type}</span>
+                          <span key={type} className={`px-3 py-1 rounded-full text-sm font-medium ${type === '수정작업' ? 'bg-pink-100 text-pink-800' : type === '병해충 방제' ? 'bg-red-100 text-red-800' : type === '물주기' ? 'bg-cyan-100 text-cyan-800' : type === '비료주기' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}>{type}</span>
                         ))}
                         {entry.areas && entry.areas.map(area => (
                           <span key={area} className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1">
@@ -455,7 +499,7 @@ export default function App() {
                           </span>
                         )}
                         {entry.images && entry.images.length > 0 && (
-                          <span className="bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1">
+                          <span className="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1">
                             <Camera className="w-3 h-3" />{entry.images.length}장
                           </span>
                         )}
@@ -605,31 +649,121 @@ export default function App() {
             <div className="mt-4 text-sm text-gray-600">💡 각 날짜의 색상 막대는 병해충 방제 작업을 나타냅니다.</div>
           </div>
         )}
+
+        {currentView === 'watering' && (
+          <div className="bg-white rounded-lg shadow-lg p-6 overflow-x-auto">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                  className="px-4 py-2 border-2 border-gray-300 rounded-lg font-bold text-xl text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                >
+                  {yearOptions.map(year => (
+                    <option key={year} value={year}>{year}년</option>
+                  ))}
+                </select>
+                <h2 className="text-2xl font-bold text-gray-800">관주/관수 타임라인</h2>
+              </div>
+              <div className="flex gap-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="text-cyan-600 font-bold text-lg">~</div>
+                  <span className="font-medium">물주기(관수)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="text-amber-600 font-bold text-lg">━</div>
+                  <span className="font-medium">비료주기(관주)</span>
+                </div>
+              </div>
+            </div>
+            <div className="min-w-max">
+              <div className="flex mb-2">
+                <div className="w-16 text-xs font-bold text-gray-700 flex items-center justify-center border-r-2">월</div>
+                {Array.from({length: 31}, (_, i) => i + 1).map(day => (
+                  <div key={day} className="w-8 text-xs font-bold text-gray-700 text-center">{day}</div>
+                ))}
+              </div>
+              {monthNames.map((month, monthIndex) => (
+                <div key={month} className="flex border-b hover:bg-gray-50">
+                  <div className="w-16 py-2 font-bold text-sm text-gray-700 flex items-center justify-center border-r-2">{month}</div>
+                  {Array.from({length: 31}, (_, dayIndex) => {
+                    const day = dayIndex + 1;
+                    const isValidDay = day <= daysInMonth[monthIndex];
+                    const dateStr = `${selectedYear}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const watering = isValidDay ? entries.filter(e => 
+                      e.date === dateStr && 
+                      e.workTypes && 
+                      (e.workTypes.includes('물주기') || e.workTypes.includes('비료주기'))
+                    ) : [];
+                    const hasWatering = watering.filter(e => e.workTypes.includes('물주기')).length > 0;
+                    const hasFertilizer = watering.filter(e => e.workTypes.includes('비료주기')).length > 0;
+                    
+                    return (
+                      <div key={day} className={`w-8 h-10 flex flex-col items-center justify-center text-xs relative ${!isValidDay ? 'bg-gray-100' : ''}`}>
+                        {hasWatering && (
+                          <div className="text-cyan-600 font-bold text-base leading-none" title={`${dateStr} - 물주기${watering.find(e => e.workTypes.includes('물주기'))?.workTime ? ' (' + watering.find(e => e.workTypes.includes('물주기')).workTime + ')' : ''}`}>
+                            ~
+                          </div>
+                        )}
+                        {hasFertilizer && (
+                          <div className="text-amber-600 font-bold text-base leading-none" title={`${dateStr} - 비료주기${watering.find(e => e.workTypes.includes('비료주기'))?.workTime ? ' (' + watering.find(e => e.workTypes.includes('비료주기')).workTime + ')' : ''}`}>
+                            ━
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 text-sm text-gray-600">
+              💡 ~ (물결표)는 물주기(관수), ━ (굵은 줄)는 비료주기(관주)를 나타냅니다. 
+              <br />
+              💧 기호 위에 마우스를 올리면 작업 시간을 확인할 수 있습니다.
+            </div>
+          </div>
+        )}
+        
         {currentView === 'sales' && (
           <div className="space-y-6">
             <div className="bg-white rounded-lg shadow-lg p-4">
-              <button
-                onClick={() => {
-                  setShowSalesForm(!showSalesForm);
-                  setEditingId(null);
-                  setFormData({
-                    date: new Date().toISOString().split('T')[0],
-                    useAutoDate: true,
-                    crop: '',
-                    workTypes: [],
-                    areas: [],
-                    weather: '',
-                    content: '',
-                    images: [],
-                    salesLocation: '',
-                    salesAmount: '',
-                    salesBoxes: ''
-                  });
-                }}
-                className="w-full flex items-center justify-center gap-2 bg-yellow-500 text-white px-4 py-3 rounded-lg hover:bg-yellow-600 transition font-bold"
-              >
-                <Plus className="w-5 h-5" />새 판매 기록
-              </button>
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <div className="flex items-center gap-3">
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                    className="px-4 py-2 border-2 border-gray-300 rounded-lg font-bold text-xl text-gray-800 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                  >
+                    {yearOptions.map(year => (
+                      <option key={year} value={year}>{year}년</option>
+                    ))}
+                  </select>
+                  <h2 className="text-2xl font-bold text-gray-800">판매 기록</h2>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowSalesForm(!showSalesForm);
+                    setEditingId(null);
+                    setFormData({
+                      date: new Date().toISOString().split('T')[0],
+                      useAutoDate: true,
+                      crop: '',
+                      workTypes: [],
+                      workTime: '',
+                      areas: [],
+                      weather: '',
+                      content: '',
+                      images: [],
+                      salesLocation: '',
+                      salesAmount: '',
+                      salesBoxes: ''
+                    });
+                  }}
+                  className="flex items-center gap-2 bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600 transition font-bold"
+                >
+                  <Plus className="w-5 h-5" />새 판매 기록
+                </button>
+              </div>
             </div>
 
             {showSalesForm && (
@@ -696,7 +830,7 @@ export default function App() {
 
             <div className="bg-white rounded-lg shadow-lg p-6">
               <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                <DollarSign className="w-7 h-7 text-green-600" />판매 통계
+                <DollarSign className="w-7 h-7 text-green-600" />판매 통계 ({selectedYear}년)
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 {salesLocations.map(location => (
@@ -734,9 +868,9 @@ export default function App() {
             </div>
 
             <div className="bg-white rounded-lg shadow-lg p-6">
-              <h3 className="text-xl font-bold text-gray-800 mb-4">판매 기록</h3>
+              <h3 className="text-xl font-bold text-gray-800 mb-4">{selectedYear}년 판매 기록</h3>
               {salesEntries.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">아직 판매 기록이 없습니다!</div>
+                <div className="text-center py-8 text-gray-500">{selectedYear}년 판매 기록이 없습니다!</div>
               ) : (
                 <div className="space-y-3">
                   {salesEntries.sort((a, b) => new Date(b.date) - new Date(a.date)).map(entry => (
@@ -781,7 +915,7 @@ export default function App() {
         {currentView === 'diary' && entries.length > 0 && (
           <div className="bg-white rounded-lg shadow-lg p-6 mt-6">
             <h3 className="text-lg font-bold text-gray-800 mb-3">통계</h3>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-4 text-center">
               <div className="bg-green-50 p-4 rounded-lg">
                 <div className="text-2xl font-bold text-green-700">{entries.length}</div>
                 <div className="text-sm text-gray-600">전체 일지</div>
@@ -794,12 +928,16 @@ export default function App() {
                 <div className="text-2xl font-bold text-red-700">{entries.filter(e => e.workTypes && e.workTypes.includes('병해충 방제')).length}</div>
                 <div className="text-sm text-gray-600">방제</div>
               </div>
+              <div className="bg-cyan-50 p-4 rounded-lg">
+                <div className="text-2xl font-bold text-cyan-700">{entries.filter(e => e.workTypes && (e.workTypes.includes('물주기') || e.workTypes.includes('비료주기'))).length}</div>
+                <div className="text-sm text-gray-600">관주/관수</div>
+              </div>
               <div className="bg-purple-50 p-4 rounded-lg">
                 <div className="text-2xl font-bold text-purple-700">{entries.filter(e => e.workTypes && e.workTypes.includes('수확')).length}</div>
                 <div className="text-sm text-gray-600">수확</div>
               </div>
               <div className="bg-yellow-50 p-4 rounded-lg">
-                <div className="text-2xl font-bold text-yellow-700">{salesEntries.length}</div>
+                <div className="text-2xl font-bold text-yellow-700">{allSalesEntries.length}</div>
                 <div className="text-sm text-gray-600">판매</div>
               </div>
             </div>
