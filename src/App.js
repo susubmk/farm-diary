@@ -883,11 +883,11 @@ export default function App() {
               </div>
               <div className="flex gap-4 text-sm">
                 <div className="flex items-center gap-2">
-                  <div className="text-cyan-600 font-bold text-lg">~</div>
+                  <div className="w-4 h-4 border-2 border-solid border-gray-800 rounded"></div>
                   <span className="font-medium">물주기(관수)</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="text-amber-600 font-bold text-lg">━</div>
+                  <div className="w-4 h-4 border-2 border-dashed border-gray-800 rounded"></div>
                   <span className="font-medium">비료주기(관주)</span>
                 </div>
               </div>
@@ -896,7 +896,7 @@ export default function App() {
               <div className="flex mb-2">
                 <div className="w-16 text-xs font-bold text-gray-700 flex items-center justify-center border-r-2">월</div>
                 {Array.from({length: 31}, (_, i) => i + 1).map(day => (
-                  <div key={day} className="w-8 text-xs font-bold text-gray-700 text-center">{day}</div>
+                  <div key={day} className="w-20 text-xs font-bold text-gray-700 text-center">{day}</div>
                 ))}
               </div>
               {monthNames.map((month, monthIndex) => (
@@ -906,26 +906,52 @@ export default function App() {
                     const day = dayIndex + 1;
                     const isValidDay = day <= daysInMonth[monthIndex];
                     const dateStr = `${selectedYear}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                    const watering = isValidDay ? entries.filter(e => 
-                      e.date === dateStr && 
-                      e.workTypes && 
-                      (e.workTypes.includes('물주기') || e.workTypes.includes('비료주기'))
-                    ) : [];
-                    const hasWatering = watering.filter(e => e.workTypes.includes('물주기')).length > 0;
-                    const hasFertilizer = watering.filter(e => e.workTypes.includes('비료주기')).length > 0;
+                    const watering = isValidDay ? entries.filter(e => {
+                      const matchesDate = e.date === dateStr || (e.endDate && e.date <= dateStr && dateStr <= e.endDate);
+                      return matchesDate && e.workTypes && (e.workTypes.includes('물주기') || e.workTypes.includes('비료주기'));
+                    }) : [];
                     
                     return (
-                      <div key={day} className={`w-8 h-10 flex flex-col items-center justify-center text-xs relative ${!isValidDay ? 'bg-gray-100' : ''}`}>
-                        {hasWatering && (
-                          <div className="text-cyan-600 font-bold text-base leading-none" title={`${dateStr} - 물주기${watering.find(e => e.workTypes.includes('물주기'))?.workTime ? ' (' + watering.find(e => e.workTypes.includes('물주기')).workTime + ')' : ''}`}>
-                            ~
-                          </div>
-                        )}
-                        {hasFertilizer && (
-                          <div className="text-amber-600 font-bold text-base leading-none" title={`${dateStr} - 비료주기${watering.find(e => e.workTypes.includes('비료주기'))?.workTime ? ' (' + watering.find(e => e.workTypes.includes('비료주기')).workTime + ')' : ''}`}>
-                            ━
-                          </div>
-                        )}
+                      <div key={day} className={`w-20 min-h-[60px] p-1 ${!isValidDay ? 'bg-gray-100' : ''}`}>
+                        <div className="flex flex-col gap-1">
+                          {watering.map((entry, idx) => {
+                            const isWatering = entry.workTypes.includes('물주기');
+                            const isFertilizer = entry.workTypes.includes('비료주기');
+                            
+                            return (
+                              <div key={idx} className="space-y-0.5">
+                                {entry.areas && entry.areas.map((area, areaIdx) => {
+                                  const [showTooltip, setShowTooltip] = React.useState(false);
+                                  
+                                  return (
+                                    <div key={areaIdx} className="relative">
+                                      <button
+                                        onClick={() => setShowTooltip(!showTooltip)}
+                                        onMouseLeave={() => setShowTooltip(false)}
+                                        className={`w-full text-xs px-1 py-0.5 rounded text-white font-medium ${areaColors[area].replace('bg-', 'bg-')} ${
+                                          isWatering && isFertilizer ? 'border-2 border-solid border-l-dashed' :
+                                          isWatering ? 'border-2 border-solid border-gray-800' :
+                                          'border-2 border-dashed border-gray-800'
+                                        } cursor-pointer hover:opacity-80 transition`}
+                                      >
+                                        {area}
+                                      </button>
+                                      {showTooltip && (
+                                        <div className="absolute z-10 bottom-full left-1/2 transform -translate-x-1/2 mb-1 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap shadow-lg">
+                                          <div className="font-bold">{area}</div>
+                                          {isWatering && <div>물주기</div>}
+                                          {isFertilizer && <div>비료주기</div>}
+                                          {entry.workTime && <div>{entry.workTime}</div>}
+                                          <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     );
                   })}
@@ -933,9 +959,9 @@ export default function App() {
               ))}
             </div>
             <div className="mt-4 text-sm text-gray-600">
-              💡 ~ (물결표)는 물주기(관수), ━ (굵은 줄)는 비료주기(관주)를 나타냅니다. 
+              💡 구역명을 클릭/터치하면 작업 시간을 확인할 수 있습니다.
               <br />
-              💧 기호 위에 마우스를 올리면 작업 시간을 확인할 수 있습니다.
+              🔲 실선 테두리는 물주기(관수), 점선 테두리는 비료주기(관주)를 나타냅니다.
             </div>
           </div>
         )}
