@@ -381,19 +381,30 @@ export default function App() {
                 </div>
               </div>
               
-              {/* 물주기/비료주기 선택 시 시간 입력란 표시 */}
+              {/* 물주기/비료주기 선택 시 시간 선택란 표시 */}
               {needsWorkTime && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     작업 시간 <span className="text-red-500">*</span>
                     <span className="text-xs text-gray-500 ml-2">(물주기/비료주기 필수)</span>
                   </label>
-                  <input 
-                    type="time" 
+                  <select 
                     value={formData.workTime} 
                     onChange={(e) => setFormData({...formData, workTime: e.target.value})} 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
-                  />
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">시간을 선택하세요</option>
+                    <option value="30분">30분</option>
+                    <option value="1시간">1시간</option>
+                    <option value="1시간 30분">1시간 30분</option>
+                    <option value="2시간">2시간</option>
+                    <option value="2시간 30분">2시간 30분</option>
+                    <option value="3시간">3시간</option>
+                    <option value="3시간 30분">3시간 30분</option>
+                    <option value="4시간">4시간</option>
+                    <option value="4시간 30분">4시간 30분</option>
+                    <option value="5시간">5시간</option>
+                  </select>
                 </div>
               )}
               
