@@ -14,6 +14,7 @@ export default function App() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [showDateRange, setShowDateRange] = useState(false);
+  const [tooltipInfo, setTooltipInfo] = useState(null);
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     endDate: '',
@@ -921,13 +922,13 @@ export default function App() {
                             return (
                               <div key={idx} className="space-y-0.5">
                                 {entry.areas && entry.areas.map((area, areaIdx) => {
-                                  const [showTooltip, setShowTooltip] = React.useState(false);
+                                  const tooltipId = `${dateStr}-${idx}-${areaIdx}`;
                                   
                                   return (
                                     <div key={areaIdx} className="relative">
                                       <button
-                                        onClick={() => setShowTooltip(!showTooltip)}
-                                        onMouseLeave={() => setShowTooltip(false)}
+                                        onClick={() => setTooltipInfo(tooltipInfo === tooltipId ? null : tooltipId)}
+                                        onMouseLeave={() => setTooltipInfo(null)}
                                         className={`w-full text-xs px-1 py-0.5 rounded text-white font-medium ${areaColors[area].replace('bg-', 'bg-')} ${
                                           isWatering && isFertilizer ? 'border-2 border-solid border-l-dashed' :
                                           isWatering ? 'border-2 border-solid border-gray-800' :
@@ -936,7 +937,7 @@ export default function App() {
                                       >
                                         {area}
                                       </button>
-                                      {showTooltip && (
+                                      {tooltipInfo === tooltipId && (
                                         <div className="absolute z-10 bottom-full left-1/2 transform -translate-x-1/2 mb-1 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap shadow-lg">
                                           <div className="font-bold">{area}</div>
                                           {isWatering && <div>물주기</div>}

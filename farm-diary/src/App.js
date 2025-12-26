@@ -1,25 +1,1193 @@
-import logo from './logo.svg';
-import './App.css';
+/* eslint-disable no-restricted-globals */
+import React, { useState, useEffect } from 'react';
+import { Calendar, Plus, Edit2, Trash2, Search, Clock, MapPin, X, Camera, Bug, DollarSign, Droplets, Grid3x3 } from 'lucide-react';
+import { db } from './firebase';
+import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
 
-function App() {
+export default function App() {
+  const [entries, setEntries] = useState([]);
+  const [showForm, setShowForm] = useState(false);
+  const [showSalesForm, setShowSalesForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentView, setCurrentView] = useState('diary');
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [showDateRange, setShowDateRange] = useState(false);
+  const [tooltipInfo, setTooltipInfo] = useState(null);
+  const [formData, setFormData] = useState({
+    date: new Date().toISOString().split('T')[0],
+    endDate: '',
+    useAutoDate: true,
+    crop: '',
+    workTypes: [],
+    workTime: '',
+    areas: [],
+    weather: '',
+    content: '',
+    images: [],
+    salesLocation: '',
+    salesAmount: '',
+    salesBoxes: ''
+  });
+
+  useEffect(() => {
+    document.title = '참뜰리에';
+  }, []);
+  
+  const workTypeOptions = ['파종', '정식', '수정작업', '순정리', '물주기', '비료주기', '제초', '병해충 방제', '수확', '기타'];
+  const areaOptions = ['10동', '4동', '집뒤', '집앞'];
+  const salesLocations = ['광주경매장', '용암 공판장', '원예'];
+  const areaColors = {
+    '10동': 'bg-blue-500',
+    '4동': 'bg-green-500',
+    '집뒤': 'bg-purple-500',
+    '집앞': 'bg-orange-500'
+  };
+
+  const workTypeColors = {
+    '파종': 'bg-emerald-100 text-emerald-800',
+    '정식': 'bg-teal-100 text-teal-800',
+    '수정작업': 'bg-pink-100 text-pink-800',
+    '순정리': 'bg-indigo-100 text-indigo-800',
+    '물주기': 'bg-cyan-100 text-cyan-800',
+    '비료주기': 'bg-amber-100 text-amber-800',
+    '제초': 'bg-lime-100 text-lime-800',
+    '병해충 방제': 'bg-red-100 text-red-800',
+    '수확': 'bg-orange-100 text-orange-800',
+    '기타': 'bg-gray-100 text-gray-800'
+  };
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, 'entries'), (snapshot) => {
+      const entriesData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setEntries(entriesData);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const toggleWorkType = (type) => {
+    setFormData(prev => ({
+      ...prev,
+      workTypes: prev.workTypes.includes(type)
+        ? prev.workTypes.filter(t => t !== type)
+        : [...prev.workTypes, type]
+    }));
+  };
+
+  const toggleArea = (area) => {
+    setFormData(prev => ({
+      ...prev,
+      areas: prev.areas.includes(area)
+        ? prev.areas.filter(a => a !== area)
+        : [...prev.areas, area]
+    }));
+  };
+
+  const handleImageUpload = (e) => {
+    const files = Array.from(e.target.files);
+    files.forEach(file => {
+      if (file.size > 5 * 1024 * 1024) {
+        alert(`${file.name}은(는) 5MB를 초과합니다.`);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setFormData(prev => ({
+          ...prev,
+          images: [...prev.images, {
+            id: Date.now() + Math.random(),
+            data: event.target.result,
+            name: file.name
+          }]
+        }));
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeImage = (imageId) => {
+    setFormData(prev => ({
+      ...prev,
+      images: prev.images.filter(img => img.id !== imageId)
+    }));
+  };
+  
+  const handleSubmit = async () => {
+    const finalDate = formData.useAutoDate ? new Date().toISOString().split('T')[0] : formData.date;
+    if (!finalDate || !formData.crop || formData.workTypes.length === 0 || !formData.weather || !formData.content) {
+      alert('날짜, 작물, 작업종류, 날씨, 내용을 입력해주세요!');
+      return;
+    }
+    if (formData.workTypes.includes('수정작업') && formData.areas.length === 0) {
+      alert('수정작업 작업은 구역을 선택해주세요!');
+      return;
+    }
+    // 물주기나 비료주기 선택 시 시간 필수
+    if ((formData.workTypes.includes('물주기') || formData.workTypes.includes('비료주기')) && !formData.workTime) {
+      alert('물주기 또는 비료주기 작업은 시간을 입력해주세요!');
+      return;
+    }
+    // 날짜 범위 검증
+    if (showDateRange && formData.endDate && formData.endDate < finalDate) {
+      alert('종료 날짜는 시작 날짜보다 이후여야 합니다!');
+      return;
+    }
+    const entryData = { 
+      ...formData, 
+      date: finalDate, 
+      endDate: showDateRange ? formData.endDate : '',
+      createdAt: new Date().toISOString() 
+    };
+    try {
+      if (editingId) {
+        await updateDoc(doc(db, 'entries', editingId), entryData);
+        setEditingId(null);
+      } else {
+        await addDoc(collection(db, 'entries'), entryData);
+      }
+      setFormData({
+        date: new Date().toISOString().split('T')[0],
+        endDate: '',
+        useAutoDate: true,
+        crop: '',
+        workTypes: [],
+        workTime: '',
+        areas: [],
+        weather: '',
+        content: '',
+        images: [],
+        salesLocation: '',
+        salesAmount: '',
+        salesBoxes: ''
+      });
+      setShowDateRange(false);
+      setShowForm(false);
+    } catch (error) {
+      console.error('저장 실패:', error);
+      alert('저장에 실패했습니다!');
+    }
+  };
+
+  const handleSalesSubmit = async () => {
+    const finalDate = formData.useAutoDate ? new Date().toISOString().split('T')[0] : formData.date;
+    if (!finalDate || !formData.crop || !formData.salesLocation || !formData.salesAmount || !formData.salesBoxes) {
+      alert('모든 항목을 입력해주세요!');
+      return;
+    }
+    const entryData = {
+      ...formData,
+      date: finalDate,
+      endDate: '',
+      workTypes: ['수확'],
+      weather: '☀️ 맑음',
+      content: `${formData.salesLocation}에 ${formData.salesBoxes}박스 판매 (${parseInt(formData.salesAmount).toLocaleString()}원)`,
+      createdAt: new Date().toISOString()
+    };
+    try {
+      if (editingId) {
+        await updateDoc(doc(db, 'entries', editingId), entryData);
+        setEditingId(null);
+      } else {
+        await addDoc(collection(db, 'entries'), entryData);
+      }
+      setFormData({
+        date: new Date().toISOString().split('T')[0],
+        endDate: '',
+        useAutoDate: true,
+        crop: '',
+        workTypes: [],
+        workTime: '',
+        areas: [],
+        weather: '',
+        content: '',
+        images: [],
+        salesLocation: '',
+        salesAmount: '',
+        salesBoxes: ''
+      });
+      setShowSalesForm(false);
+    } catch (error) {
+      console.error('저장 실패:', error);
+      alert('저장에 실패했습니다!');
+    }
+  };
+
+  const handleEdit = (entry) => {
+    setFormData({...entry, useAutoDate: false});
+    setEditingId(entry.id);
+    setShowDateRange(entry.endDate ? true : false);
+    if (entry.salesLocation && entry.salesAmount && entry.salesBoxes) {
+      setShowSalesForm(true);
+      setCurrentView('sales');
+    } else {
+      setShowForm(true);
+      setCurrentView('diary');
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm('삭제하시겠습니까?')) {
+      try {
+        await deleteDoc(doc(db, 'entries', id));
+      } catch (error) {
+        console.error('삭제 실패:', error);
+        alert('삭제에 실패했습니다!');
+      }
+    }
+  };
+
+  const filteredEntries = entries.filter(entry => {
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      (entry.crop && entry.crop.toLowerCase().includes(searchLower)) ||
+      (entry.workTypes && entry.workTypes.some(wt => wt.toLowerCase().includes(searchLower))) ||
+      (entry.content && entry.content.toLowerCase().includes(searchLower)) ||
+      (entry.areas && entry.areas.some(area => area.toLowerCase().includes(searchLower)))
+    );
+  }).sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  const pollinationEntries = entries.filter(e => e.workTypes && e.workTypes.includes('수정작업'));
+  const pesticideEntries = entries.filter(e => e.workTypes && e.workTypes.includes('병해충 방제'));
+  const wateringEntries = entries.filter(e => e.workTypes && (e.workTypes.includes('물주기') || e.workTypes.includes('비료주기')));
+  
+  // 판매 데이터는 선택된 년도로 필터링
+  const allSalesEntries = entries.filter(e => e.salesLocation && e.salesAmount && e.salesBoxes);
+  const salesEntries = allSalesEntries.filter(e => 
+    new Date(e.date).getFullYear() === selectedYear
+  );
+
+  const getSalesStats = () => {
+    const stats = {};
+    salesLocations.forEach(location => {
+      const locationSales = salesEntries.filter(e => e.salesLocation === location);
+      const totalAmount = locationSales.reduce((sum, e) => sum + parseFloat(e.salesAmount || 0), 0);
+      const totalBoxes = locationSales.reduce((sum, e) => sum + parseInt(e.salesBoxes || 0), 0);
+      stats[location] = { totalAmount, totalBoxes };
+    });
+    const grandTotalAmount = Object.values(stats).reduce((sum, s) => sum + s.totalAmount, 0);
+    const grandTotalBoxes = Object.values(stats).reduce((sum, s) => sum + s.totalBoxes, 0);
+    const averagePrice = grandTotalBoxes > 0 ? grandTotalAmount / grandTotalBoxes : 0;
+    return { stats, grandTotalAmount, grandTotalBoxes, averagePrice };
+  };
+
+  const salesStats = getSalesStats();
+  const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from({length: 10}, (_, i) => currentYear - 5 + i);
+  const monthNames = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
+  const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if ((selectedYear % 4 === 0 && selectedYear % 100 !== 0) || selectedYear % 400 === 0) {
+    daysInMonth[1] = 29;
+  }
+
+  const getEntriesByDate = (year, month, day, workType) => {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return entries.filter(e => e.date === dateStr && e.workTypes && e.workTypes.includes(workType));
+  };
+
+  // 통합달력용: 특정 날짜의 모든 작업 가져오기
+  const getAllEntriesByDate = (year, month, day) => {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return entries.filter(e => {
+      // 단일 날짜 또는 범위에 포함되는지 확인
+      if (e.endDate) {
+        return e.date <= dateStr && dateStr <= e.endDate;
+      }
+      return e.date === dateStr;
+    });
+  };
+
+  // 물주기, 비료주기가 필요한지 확인
+  const needsWorkTime = formData.workTypes.includes('물주기') || formData.workTypes.includes('비료주기');
+  
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 p-4">
+      <div className="max-w-7xl mx-auto">
+        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <Calendar className="w-8 h-8 text-green-600" />
+              <h1 className="text-3xl font-bold text-gray-800">영농일지</h1>
+            </div>
+            <button
+              onClick={() => {
+                setShowForm(!showForm);
+                setShowSalesForm(false);
+                setEditingId(null);
+                setShowDateRange(false);
+                setCurrentView('diary');
+                setFormData({
+                  date: new Date().toISOString().split('T')[0],
+                  endDate: '',
+                  useAutoDate: true,
+                  crop: '',
+                  workTypes: [],
+                  workTime: '',
+                  areas: [],
+                  weather: '',
+                  content: '',
+                  images: [],
+                  salesLocation: '',
+                  salesAmount: '',
+                  salesBoxes: ''
+                });
+              }}
+              className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"
+            >
+              <Plus className="w-5 h-5" />
+              새 일지
+            </button>
+          </div>
+
+          <div className="flex gap-2 mb-4 flex-wrap">
+            <button onClick={() => setCurrentView('diary')} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${currentView === 'diary' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+              <Calendar className="w-5 h-5" />일지
+            </button>
+            <button onClick={() => setCurrentView('integrated')} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${currentView === 'integrated' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+              <Grid3x3 className="w-5 h-5" />통합달력
+            </button>
+            <button onClick={() => setCurrentView('pollination')} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${currentView === 'pollination' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+              <Clock className="w-5 h-5" />수정 타임라인
+              {pollinationEntries.length > 0 && <span className="bg-white text-green-600 px-2 py-0.5 rounded-full text-xs font-bold">{pollinationEntries.length}</span>}
+            </button>
+            <button onClick={() => setCurrentView('pesticide')} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${currentView === 'pesticide' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+              <Bug className="w-5 h-5" />방제 타임라인
+              {pesticideEntries.length > 0 && <span className="bg-white text-green-600 px-2 py-0.5 rounded-full text-xs font-bold">{pesticideEntries.length}</span>}
+            </button>
+            <button onClick={() => setCurrentView('watering')} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${currentView === 'watering' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+              <Droplets className="w-5 h-5" />관주/관수 타임라인
+              {wateringEntries.length > 0 && <span className="bg-white text-green-600 px-2 py-0.5 rounded-full text-xs font-bold">{wateringEntries.length}</span>}
+            </button>
+            <button onClick={() => setCurrentView('sales')} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${currentView === 'sales' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+              <DollarSign className="w-5 h-5" />누적 판매금
+              {allSalesEntries.length > 0 && <span className="bg-white text-green-600 px-2 py-0.5 rounded-full text-xs font-bold">{allSalesEntries.length}</span>}
+            </button>
+          </div>
+
+          {currentView === 'diary' && (
+            <div className="relative">
+              <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+              <input type="text" placeholder="작물, 작업, 구역, 내용 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+            </div>
+          )}
+        </div>
+
+        {showForm && (
+          <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">{editingId ? '일지 수정' : '새 일지 작성'}</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">날짜 입력 방식</label>
+                <div className="flex gap-4 mb-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" checked={formData.useAutoDate} onChange={() => setFormData({...formData, useAutoDate: true})} className="w-4 h-4 text-green-600" />
+                    <span className="text-sm font-medium">오늘 날짜 자동 입력</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" checked={!formData.useAutoDate} onChange={() => setFormData({...formData, useAutoDate: false})} className="w-4 h-4 text-green-600" />
+                    <span className="text-sm font-medium">날짜 직접 선택</span>
+                  </label>
+                </div>
+                {formData.useAutoDate ? (
+                  <div className="bg-green-50 border-2 border-green-200 rounded-lg p-3 text-center">
+                    <span className="text-green-700 font-bold text-lg">📅 {new Date().toISOString().split('T')[0]} (오늘)</span>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="date" 
+                        value={formData.date} 
+                        onChange={(e) => setFormData({...formData, date: e.target.value})} 
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" 
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowDateRange(!showDateRange)}
+                        className={`px-4 py-2 rounded-lg font-bold text-lg transition ${showDateRange ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                        title="기간 선택"
+                      >
+                        ~
+                      </button>
+                    </div>
+                    {showDateRange && (
+                      <div className="flex items-center gap-2 pl-4">
+                        <span className="text-gray-500 text-sm">~</span>
+                        <input 
+                          type="date" 
+                          value={formData.endDate} 
+                          onChange={(e) => setFormData({...formData, endDate: e.target.value})} 
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" 
+                          placeholder="종료 날짜"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">작물</label>
+                <input type="text" value={formData.crop} onChange={(e) => setFormData({...formData, crop: e.target.value})} placeholder="예: 고추, 토마토" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">작업 종류 <span className="text-red-500">*</span></label>
+                <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-3">
+                    {workTypeOptions.map(type => (
+                      <label key={type} className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition ${formData.workTypes.includes(type) ? 'bg-blue-100 border-2 border-blue-500' : 'bg-white border-2 border-gray-200 hover:border-blue-300'}`}>
+                        <input type="checkbox" checked={formData.workTypes.includes(type)} onChange={() => toggleWorkType(type)} className="w-4 h-4 text-blue-600" />
+                        <span className="text-sm font-medium">{type}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {formData.workTypes.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200">
+                      <span className="text-xs font-medium text-gray-500">선택됨:</span>
+                      {formData.workTypes.map(type => (
+                        <span key={type} className="inline-flex items-center gap-1 bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+                          {type}
+                          <button onClick={() => toggleWorkType(type)} className="hover:bg-blue-600 rounded-full p-0.5">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* 물주기/비료주기 선택 시 시간 선택란 표시 */}
+              {needsWorkTime && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    작업 시간 <span className="text-red-500">*</span>
+                    <span className="text-xs text-gray-500 ml-2">(물주기/비료주기 필수)</span>
+                  </label>
+                  <select 
+                    value={formData.workTime} 
+                    onChange={(e) => setFormData({...formData, workTime: e.target.value})} 
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">시간을 선택하세요</option>
+                    <option value="30분">30분</option>
+                    <option value="1시간">1시간</option>
+                    <option value="1시간 30분">1시간 30분</option>
+                    <option value="2시간">2시간</option>
+                    <option value="2시간 30분">2시간 30분</option>
+                    <option value="3시간">3시간</option>
+                    <option value="3시간 30분">3시간 30분</option>
+                    <option value="4시간">4시간</option>
+                    <option value="4시간 30분">4시간 30분</option>
+                    <option value="5시간">5시간</option>
+                  </select>
+                </div>
+              )}
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">구역 {formData.workTypes.includes('수정작업') && <span className="text-red-500">*</span>}</label>
+                <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+                    {areaOptions.map(area => (
+                      <label key={area} className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition ${formData.areas.includes(area) ? 'bg-purple-100 border-2 border-purple-500' : 'bg-white border-2 border-gray-200 hover:border-purple-300'}`}>
+                        <input type="checkbox" checked={formData.areas.includes(area)} onChange={() => toggleArea(area)} className="w-4 h-4 text-purple-600" />
+                        <span className="text-sm font-medium">{area}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {formData.areas.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200">
+                      <span className="text-xs font-medium text-gray-500">선택됨:</span>
+                      {formData.areas.map(area => (
+                        <span key={area} className="inline-flex items-center gap-1 bg-purple-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+                          <MapPin className="w-3 h-3" />{area}
+                          <button onClick={() => toggleArea(area)} className="hover:bg-purple-600 rounded-full p-0.5">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">날씨</label>
+                <select value={formData.weather} onChange={(e) => setFormData({...formData, weather: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                  <option value="">선택하세요</option>
+                  <option value="☀️ 맑음">☀️ 맑음</option>
+                  <option value="⛅ 흐림">⛅ 흐림</option>
+                  <option value="🌧️ 비">🌧️ 비</option>
+                  <option value="❄️ 눈">❄️ 눈</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">사진 첨부</label>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
+                  <label className="flex flex-col items-center gap-2 cursor-pointer">
+                    <Camera className="w-8 h-8 text-gray-400" />
+                    <span className="text-sm text-gray-600">사진 선택하기</span>
+                    <input type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden" />
+                  </label>
+                  {formData.images.length > 0 && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+                      {formData.images.map(img => (
+                        <div key={img.id} className="relative group">
+                          <img src={img.data} alt={img.name} className="w-full h-24 object-cover rounded-lg border-2 border-gray-200" />
+                          <button onClick={() => removeImage(img.id)} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition">
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">작업 내용</label>
+                <textarea value={formData.content} onChange={(e) => setFormData({...formData, content: e.target.value})} placeholder="오늘 한 작업을 자세히 기록하세요..." rows="4" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </div>
+              <div className="flex gap-3">
+                <button onClick={handleSubmit} className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition font-medium">{editingId ? '수정 완료' : '저장하기'}</button>
+                <button onClick={() => { setShowForm(false); setEditingId(null); setShowDateRange(false); }} className="px-6 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400 transition font-medium">취소</button>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {currentView === 'diary' && (
+          <div className="space-y-4">
+            {filteredEntries.length === 0 ? (
+              <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
+                {searchTerm ? '검색 결과가 없습니다.' : '아직 작성된 일지가 없습니다!'}
+              </div>
+            ) : (
+              filteredEntries.map(entry => (
+                <div key={entry.id} className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition">
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="text-lg font-bold text-green-700">
+                          {entry.date}
+                          {entry.endDate && <span className="text-gray-500"> ~ {entry.endDate}</span>}
+                        </span>
+                        {entry.workTime && <span className="text-sm font-bold text-blue-600">⏰ {entry.workTime}</span>}
+                        <span className="text-2xl">{entry.weather}</span>
+                      </div>
+                      <div className="flex gap-2 mb-3 flex-wrap">
+                        <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">{entry.crop}</span>
+                        {entry.workTypes && entry.workTypes.map(type => (
+                          <span key={type} className={`px-3 py-1 rounded-full text-sm font-medium ${workTypeColors[type] || 'bg-gray-100 text-gray-800'}`}>{type}</span>
+                        ))}
+                        {entry.areas && entry.areas.map(area => (
+                          <span key={area} className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1">
+                            <MapPin className="w-3 h-3" />{area}
+                          </span>
+                        ))}
+                        {entry.salesLocation && (
+                          <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1">
+                            <DollarSign className="w-3 h-3" />{entry.salesLocation} {parseInt(entry.salesAmount).toLocaleString()}원
+                          </span>
+                        )}
+                        {entry.images && entry.images.length > 0 && (
+                          <span className="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1">
+                            <Camera className="w-3 h-3" />{entry.images.length}장
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => handleEdit(entry)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition">
+                        <Edit2 className="w-5 h-5" />
+                      </button>
+                      <button onClick={() => handleDelete(entry.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition">
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-gray-700 whitespace-pre-wrap mb-3">{entry.content}</p>
+                  {entry.images && entry.images.length > 0 && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
+                      {entry.images.map(img => (
+                        <img key={img.id} src={img.data} alt={img.name} className="w-full h-32 object-cover rounded-lg border-2 border-gray-200 cursor-pointer hover:border-green-500 transition" onClick={() => window.open(img.data, '_blank')} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {currentView === 'integrated' && (
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <div className="mb-6 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                  className="px-4 py-2 border-2 border-gray-300 rounded-lg font-bold text-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  {yearOptions.map(year => (
+                    <option key={year} value={year}>{year}년</option>
+                  ))}
+                </select>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                  className="px-4 py-2 border-2 border-gray-300 rounded-lg font-bold text-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  {monthNames.map((month, idx) => (
+                    <option key={idx} value={idx}>{month}</option>
+                  ))}
+                </select>
+                <h2 className="text-2xl font-bold text-gray-800">통합 작업 달력</h2>
+              </div>
+            </div>
+            
+            {/* 범례 */}
+            <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <div className="text-sm font-bold text-gray-700 mb-2">작업 종류:</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {workTypeOptions.map(type => (
+                      <div key={type} className="flex items-center gap-2">
+                        <div className={`w-3 h-3 rounded ${workTypeColors[type]?.replace('text-', 'bg-').split(' ')[0] || 'bg-gray-400'}`}></div>
+                        <span className="text-xs">{type}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm font-bold text-gray-700 mb-2">구역 표시:</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {areaOptions.map(area => (
+                      <div key={area} className="flex items-center gap-2">
+                        <div className={`w-3 h-3 rounded-full ${areaColors[area]}`}></div>
+                        <span className="text-xs">{area}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 달력 그리드 */}
+            <div className="overflow-x-auto">
+              <div className="inline-block min-w-full">
+                {/* 요일 헤더 */}
+                <div className="grid grid-cols-7 gap-1 mb-2">
+                  {['일', '월', '화', '수', '목', '금', '토'].map(day => (
+                    <div key={day} className="text-center font-bold text-gray-700 py-2">{day}</div>
+                  ))}
+                </div>
+                
+                {/* 날짜 그리드 */}
+                <div className="grid grid-cols-7 gap-1">
+                  {(() => {
+                    const firstDay = new Date(selectedYear, selectedMonth, 1).getDay();
+                    const daysInCurrentMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+                    const cells = [];
+                    
+                    // 빈 셀 추가 (월 시작 전)
+                    for (let i = 0; i < firstDay; i++) {
+                      cells.push(<div key={`empty-${i}`} className="bg-gray-50 rounded-lg p-2 h-24"></div>);
+                    }
+                    
+                    // 날짜 셀 추가
+                    for (let day = 1; day <= daysInCurrentMonth; day++) {
+                      const dayEntries = getAllEntriesByDate(selectedYear, selectedMonth, day);
+                      const isToday = selectedYear === new Date().getFullYear() && 
+                                     selectedMonth === new Date().getMonth() && 
+                                     day === new Date().getDate();
+                      
+                      cells.push(
+                        <div key={day} className={`border-2 rounded-lg p-2 h-24 overflow-y-auto ${isToday ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white'}`}>
+                          <div className={`text-sm font-bold mb-1 ${isToday ? 'text-green-700' : 'text-gray-700'}`}>{day}</div>
+                          <div className="space-y-1">
+                            {dayEntries.map((entry, idx) => (
+                              <div key={idx} className="text-xs">
+                                {entry.workTypes && entry.workTypes.map((type, typeIdx) => (
+                                  <div key={typeIdx} className={`px-1 py-0.5 rounded text-xs mb-0.5 flex items-center gap-1 ${workTypeColors[type] || 'bg-gray-100 text-gray-800'}`}>
+                                    <span>{type}</span>
+                                    {entry.workTime && (type === '물주기' || type === '비료주기') && <span className="text-xs">({entry.workTime})</span>}
+                                    {entry.areas && entry.areas.length > 0 && (
+                                      <span className="flex gap-0.5 ml-1">
+                                        {entry.areas.map((area, areaIdx) => (
+                                          <span 
+                                            key={areaIdx} 
+                                            className={`w-2 h-2 rounded-full ${areaColors[area]}`}
+                                            title={area}
+                                          ></span>
+                                        ))}
+                                      </span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                    
+                    return cells;
+                  })()}
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-4 text-sm text-gray-600">
+              💡 각 날짜에 해당하는 모든 작업이 색상별로 표시됩니다. 오늘 날짜는 초록색 테두리로 강조됩니다.
+            </div>
+          </div>
+        )}
+
+        {currentView === 'pollination' && (
+          <div className="bg-white rounded-lg shadow-lg p-6 overflow-x-auto">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                  className="px-4 py-2 border-2 border-gray-300 rounded-lg font-bold text-xl text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                >
+                  {yearOptions.map(year => (
+                    <option key={year} value={year}>{year}년</option>
+                  ))}
+                </select>
+                <h2 className="text-2xl font-bold text-gray-800">수정작업 타임라인</h2>
+              </div>
+              <div className="flex gap-3 text-sm">
+                {areaOptions.map(area => (
+                  <div key={area} className="flex items-center gap-2">
+                    <div className={`w-4 h-4 ${areaColors[area]} rounded`}></div>
+                    <span className="font-medium">{area}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="min-w-max">
+              <div className="flex mb-2">
+                <div className="w-16 text-xs font-bold text-gray-700 flex items-center justify-center border-r-2">월</div>
+                {Array.from({length: 31}, (_, i) => i + 1).map(day => (
+                  <div key={day} className="w-8 text-xs font-bold text-gray-700 text-center">{day}</div>
+                ))}
+              </div>
+              {monthNames.map((month, monthIndex) => (
+                <div key={month} className="flex border-b hover:bg-gray-50">
+                  <div className="w-16 py-2 font-bold text-sm text-gray-700 flex items-center justify-center border-r-2">{month}</div>
+                  {Array.from({length: 31}, (_, dayIndex) => {
+                    const day = dayIndex + 1;
+                    const isValidDay = day <= daysInMonth[monthIndex];
+                    const pollinations = isValidDay ? getEntriesByDate(selectedYear, monthIndex, day, '수정작업') : [];
+                    const hasData = pollinations.length > 0;
+                    return (
+                      <div key={day} className={`w-8 h-10 flex items-center justify-center text-xs relative ${!isValidDay ? 'bg-gray-100' : ''}`}>
+                        {hasData && (
+                          <div className="absolute inset-0 flex flex-col gap-0.5 p-0.5">
+                            {pollinations.map((poll, idx) => {
+                              const uniqueAreas = [...new Set(poll.areas)];
+                              return uniqueAreas.map((area, areaIdx) => (
+                                <div key={`${idx}-${areaIdx}`} className={`h-1.5 ${areaColors[area]} rounded-sm`} title={`${poll.date} - ${area} - ${poll.crop}`}></div>
+                              ));
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 text-sm text-gray-600">💡 각 날짜의 색상 막대는 수정작업 작업을 나타냅니다.</div>
+          </div>
+        )}
+
+        {currentView === 'pesticide' && (
+          <div className="bg-white rounded-lg shadow-lg p-6 overflow-x-auto">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                  className="px-4 py-2 border-2 border-gray-300 rounded-lg font-bold text-xl text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                >
+                  {yearOptions.map(year => (
+                    <option key={year} value={year}>{year}년</option>
+                  ))}
+                </select>
+                <h2 className="text-2xl font-bold text-gray-800">병해충 방제 타임라인</h2>
+              </div>
+              <div className="flex gap-3 text-sm">
+                {areaOptions.map(area => (
+                  <div key={area} className="flex items-center gap-2">
+                    <div className={`w-4 h-4 ${areaColors[area]} rounded`}></div>
+                    <span className="font-medium">{area}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="min-w-max">
+              <div className="flex mb-2">
+                <div className="w-16 text-xs font-bold text-gray-700 flex items-center justify-center border-r-2">월</div>
+                {Array.from({length: 31}, (_, i) => i + 1).map(day => (
+                  <div key={day} className="w-8 text-xs font-bold text-gray-700 text-center">{day}</div>
+                ))}
+              </div>
+              {monthNames.map((month, monthIndex) => (
+                <div key={month} className="flex border-b hover:bg-gray-50">
+                  <div className="w-16 py-2 font-bold text-sm text-gray-700 flex items-center justify-center border-r-2">{month}</div>
+                  {Array.from({length: 31}, (_, dayIndex) => {
+                    const day = dayIndex + 1;
+                    const isValidDay = day <= daysInMonth[monthIndex];
+                    const pesticides = isValidDay ? getEntriesByDate(selectedYear, monthIndex, day, '병해충 방제') : [];
+                    const hasData = pesticides.length > 0;
+                    return (
+                      <div key={day} className={`w-8 h-10 flex items-center justify-center text-xs relative ${!isValidDay ? 'bg-gray-100' : ''}`}>
+                        {hasData && (
+                          <div className="absolute inset-0 flex flex-col gap-0.5 p-0.5">
+                            {pesticides.map((pest, idx) => {
+                              const uniqueAreas = [...new Set(pest.areas)];
+                              return uniqueAreas.map((area, areaIdx) => (
+                                <div key={`${idx}-${areaIdx}`} className={`h-1.5 ${areaColors[area]} rounded-sm`} title={`${pest.date} - ${area} - ${pest.crop}`}></div>
+                              ));
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 text-sm text-gray-600">💡 각 날짜의 색상 막대는 병해충 방제 작업을 나타냅니다.</div>
+          </div>
+        )}
+
+        {currentView === 'watering' && (
+          <div className="bg-white rounded-lg shadow-lg p-6 overflow-x-auto">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                  className="px-4 py-2 border-2 border-gray-300 rounded-lg font-bold text-xl text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                >
+                  {yearOptions.map(year => (
+                    <option key={year} value={year}>{year}년</option>
+                  ))}
+                </select>
+                <h2 className="text-2xl font-bold text-gray-800">관주/관수 타임라인</h2>
+              </div>
+              <div className="flex gap-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-solid border-gray-800 rounded"></div>
+                  <span className="font-medium">물주기(관수)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-dashed border-gray-800 rounded"></div>
+                  <span className="font-medium">비료주기(관주)</span>
+                </div>
+              </div>
+            </div>
+            <div className="min-w-max">
+              <div className="flex mb-2">
+                <div className="w-16 text-xs font-bold text-gray-700 flex items-center justify-center border-r-2">월</div>
+                {Array.from({length: 31}, (_, i) => i + 1).map(day => (
+                  <div key={day} className="w-20 text-xs font-bold text-gray-700 text-center">{day}</div>
+                ))}
+              </div>
+              {monthNames.map((month, monthIndex) => (
+                <div key={month} className="flex border-b hover:bg-gray-50">
+                  <div className="w-16 py-2 font-bold text-sm text-gray-700 flex items-center justify-center border-r-2">{month}</div>
+                  {Array.from({length: 31}, (_, dayIndex) => {
+                    const day = dayIndex + 1;
+                    const isValidDay = day <= daysInMonth[monthIndex];
+                    const dateStr = `${selectedYear}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const watering = isValidDay ? entries.filter(e => {
+                      const matchesDate = e.date === dateStr || (e.endDate && e.date <= dateStr && dateStr <= e.endDate);
+                      return matchesDate && e.workTypes && (e.workTypes.includes('물주기') || e.workTypes.includes('비료주기'));
+                    }) : [];
+                    
+                    return (
+                      <div key={day} className={`w-20 min-h-[60px] p-1 ${!isValidDay ? 'bg-gray-100' : ''}`}>
+                        <div className="flex flex-col gap-1">
+                          {watering.map((entry, idx) => {
+                            const isWatering = entry.workTypes.includes('물주기');
+                            const isFertilizer = entry.workTypes.includes('비료주기');
+                            
+                            return (
+                              <div key={idx} className="space-y-0.5">
+                                {entry.areas && entry.areas.map((area, areaIdx) => {
+                                  const tooltipId = `${dateStr}-${idx}-${areaIdx}`;
+                                  
+                                  return (
+                                    <div key={areaIdx} className="relative">
+                                      <button
+                                        onClick={() => setTooltipInfo(tooltipInfo === tooltipId ? null : tooltipId)}
+                                        onMouseLeave={() => setTooltipInfo(null)}
+                                        className={`w-full text-xs px-1 py-0.5 rounded text-white font-medium ${areaColors[area].replace('bg-', 'bg-')} ${
+                                          isWatering && isFertilizer ? 'border-2 border-solid border-l-dashed' :
+                                          isWatering ? 'border-2 border-solid border-gray-800' :
+                                          'border-2 border-dashed border-gray-800'
+                                        } cursor-pointer hover:opacity-80 transition`}
+                                      >
+                                        {area}
+                                      </button>
+                                      {tooltipInfo === tooltipId && (
+                                        <div className="absolute z-10 bottom-full left-1/2 transform -translate-x-1/2 mb-1 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap shadow-lg">
+                                          <div className="font-bold">{area}</div>
+                                          {isWatering && <div>물주기</div>}
+                                          {isFertilizer && <div>비료주기</div>}
+                                          {entry.workTime && <div>{entry.workTime}</div>}
+                                          <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 text-sm text-gray-600">
+              💡 구역명을 클릭/터치하면 작업 시간을 확인할 수 있습니다.
+              <br />
+              🔲 실선 테두리는 물주기(관수), 점선 테두리는 비료주기(관주)를 나타냅니다.
+            </div>
+          </div>
+        )}
+        
+        {currentView === 'sales' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow-lg p-4">
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <div className="flex items-center gap-3">
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                    className="px-4 py-2 border-2 border-gray-300 rounded-lg font-bold text-xl text-gray-800 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                  >
+                    {yearOptions.map(year => (
+                      <option key={year} value={year}>{year}년</option>
+                    ))}
+                  </select>
+                  <h2 className="text-2xl font-bold text-gray-800">판매 기록</h2>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowSalesForm(!showSalesForm);
+                    setEditingId(null);
+                    setFormData({
+                      date: new Date().toISOString().split('T')[0],
+                      endDate: '',
+                      useAutoDate: true,
+                      crop: '',
+                      workTypes: [],
+                      workTime: '',
+                      areas: [],
+                      weather: '',
+                      content: '',
+                      images: [],
+                      salesLocation: '',
+                      salesAmount: '',
+                      salesBoxes: ''
+                    });
+                  }}
+                  className="flex items-center gap-2 bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600 transition font-bold"
+                >
+                  <Plus className="w-5 h-5" />새 판매 기록
+                </button>
+              </div>
+            </div>
+
+            {showSalesForm && (
+              <div className="bg-white rounded-lg shadow-lg p-6">
+                <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <DollarSign className="w-6 h-6 text-yellow-600" />
+                  {editingId ? '판매 기록 수정' : '새 판매 기록 작성'}
+                </h2>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">날짜 입력 방식</label>
+                    <div className="flex gap-4 mb-3">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" checked={formData.useAutoDate} onChange={() => setFormData({...formData, useAutoDate: true})} className="w-4 h-4 text-yellow-600" />
+                        <span className="text-sm font-medium">오늘 날짜 자동 입력</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" checked={!formData.useAutoDate} onChange={() => setFormData({...formData, useAutoDate: false})} className="w-4 h-4 text-yellow-600" />
+                        <span className="text-sm font-medium">날짜 직접 선택</span>
+                      </label>
+                    </div>
+                    {formData.useAutoDate ? (
+                      <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-3 text-center">
+                        <span className="text-yellow-700 font-bold text-lg">📅 {new Date().toISOString().split('T')[0]} (오늘)</span>
+                      </div>
+                    ) : (
+                      <input type="date" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500" />
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">작물 <span className="text-red-500">*</span></label>
+                    <input type="text" value={formData.crop} onChange={(e) => setFormData({...formData, crop: e.target.value})} placeholder="예: 고추, 토마토" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500" />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">판매처 <span className="text-red-500">*</span></label>
+                      <select value={formData.salesLocation} onChange={(e) => setFormData({...formData, salesLocation: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                        <option value="">선택하세요</option>
+                        {salesLocations.map(loc => (<option key={loc} value={loc}>{loc}</option>))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">판매금 (원) <span className="text-red-500">*</span></label>
+                      <input type="number" value={formData.salesAmount} onChange={(e) => setFormData({...formData, salesAmount: e.target.value})} placeholder="예: 150000" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">박스 수량 <span className="text-red-500">*</span></label>
+                      <input type="number" value={formData.salesBoxes} onChange={(e) => setFormData({...formData, salesBoxes: e.target.value})} placeholder="예: 30" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500" />
+                    </div>
+                  </div>
+                  {formData.salesAmount && formData.salesBoxes && (
+                    <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
+                      <div className="text-sm text-gray-600">박스당 단가</div>
+                      <div className="text-2xl font-bold text-blue-700">{(parseInt(formData.salesAmount) / parseInt(formData.salesBoxes)).toLocaleString(undefined, {maximumFractionDigits: 0})}원/박스</div>
+                    </div>
+                  )}
+                  <div className="flex gap-3">
+                    <button onClick={handleSalesSubmit} className="flex-1 bg-yellow-500 text-white py-2 rounded-lg hover:bg-yellow-600 transition font-medium">{editingId ? '수정 완료' : '저장하기'}</button>
+                    <button onClick={() => { setShowSalesForm(false); setEditingId(null); }} className="px-6 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400 transition font-medium">취소</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="bg-white rounded-lg shadow-lg p-6">
+              <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                <DollarSign className="w-7 h-7 text-green-600" />판매 통계 ({selectedYear}년)
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                {salesLocations.map(location => (
+                  <div key={location} className="bg-gradient-to-br from-blue-50 to-blue-100 p-5 rounded-lg border-2 border-blue-200">
+                    <h3 className="font-bold text-gray-700 mb-3">{location}</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">판매금:</span>
+                        <span className="text-xl font-bold text-blue-700">{salesStats.stats[location].totalAmount.toLocaleString()}원</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">박스:</span>
+                        <span className="text-lg font-bold text-blue-600">{salesStats.stats[location].totalBoxes}박스</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="bg-gradient-to-br from-green-50 to-emerald-100 p-6 rounded-lg border-2 border-green-300">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                  <div>
+                    <div className="text-sm text-gray-600 mb-1">총 판매금</div>
+                    <div className="text-3xl font-bold text-green-700">{salesStats.grandTotalAmount.toLocaleString()}원</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-600 mb-1">총 박스 수량</div>
+                    <div className="text-3xl font-bold text-green-700">{salesStats.grandTotalBoxes}박스</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-600 mb-1">박스당 평균 단가</div>
+                    <div className="text-3xl font-bold text-green-700">{salesStats.averagePrice.toLocaleString(undefined, {maximumFractionDigits: 0})}원</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-lg p-6">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">{selectedYear}년 판매 기록</h3>
+              {salesEntries.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">{selectedYear}년 판매 기록이 없습니다!</div>
+              ) : (
+                <div className="space-y-3">
+                  {salesEntries.sort((a, b) => new Date(b.date) - new Date(a.date)).map(entry => (
+                    <div key={entry.id} className="border-l-4 border-yellow-400 bg-yellow-50 p-4 rounded-r-lg hover:bg-yellow-100 transition">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-bold text-yellow-800">{entry.date}</span>
+                          <span className="bg-yellow-200 text-yellow-800 px-3 py-1 rounded-full text-sm font-medium">{entry.salesLocation}</span>
+                          <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">{entry.crop}</span>
+                        </div>
+                        <div className="flex gap-1">
+                          <button onClick={() => handleEdit(entry)} className="p-1 text-blue-600 hover:bg-blue-50 rounded">
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => handleDelete(entry.id)} className="p-1 text-red-600 hover:bg-red-50 rounded">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex gap-6 text-sm">
+                        <div>
+                          <span className="text-gray-600">판매금: </span>
+                          <span className="font-bold text-blue-700">{parseInt(entry.salesAmount).toLocaleString()}원</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">박스: </span>
+                          <span className="font-bold text-green-700">{entry.salesBoxes}박스</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">단가: </span>
+                          <span className="font-bold text-purple-700">{(parseInt(entry.salesAmount) / parseInt(entry.salesBoxes)).toLocaleString(undefined, {maximumFractionDigits: 0})}원/박스</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {currentView === 'diary' && entries.length > 0 && (
+          <div className="bg-white rounded-lg shadow-lg p-6 mt-6">
+            <h3 className="text-lg font-bold text-gray-800 mb-3">통계</h3>
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-4 text-center">
+              <div className="bg-green-50 p-4 rounded-lg">
+                <div className="text-2xl font-bold text-green-700">{entries.length}</div>
+                <div className="text-sm text-gray-600">전체 일지</div>
+              </div>
+              <div className="bg-pink-50 p-4 rounded-lg">
+                <div className="text-2xl font-bold text-pink-700">{entries.filter(e => e.workTypes && e.workTypes.includes('수정작업')).length}</div>
+                <div className="text-sm text-gray-600">수정작업</div>
+              </div>
+              <div className="bg-red-50 p-4 rounded-lg">
+                <div className="text-2xl font-bold text-red-700">{entries.filter(e => e.workTypes && e.workTypes.includes('병해충 방제')).length}</div>
+                <div className="text-sm text-gray-600">방제</div>
+              </div>
+              <div className="bg-cyan-50 p-4 rounded-lg">
+                <div className="text-2xl font-bold text-cyan-700">{entries.filter(e => e.workTypes && (e.workTypes.includes('물주기') || e.workTypes.includes('비료주기'))).length}</div>
+                <div className="text-sm text-gray-600">관주/관수</div>
+              </div>
+              <div className="bg-purple-50 p-4 rounded-lg">
+                <div className="text-2xl font-bold text-purple-700">{entries.filter(e => e.workTypes && e.workTypes.includes('수확')).length}</div>
+                <div className="text-sm text-gray-600">수확</div>
+              </div>
+              <div className="bg-yellow-50 p-4 rounded-lg">
+                <div className="text-2xl font-bold text-yellow-700">{allSalesEntries.length}</div>
+                <div className="text-sm text-gray-600">판매</div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
-
-export default App;
