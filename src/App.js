@@ -897,7 +897,7 @@ export default function App() {
               <div className="flex mb-2">
                 <div className="w-16 text-xs font-bold text-gray-700 flex items-center justify-center border-r-2">월</div>
                 {Array.from({length: 31}, (_, i) => i + 1).map(day => (
-                  <div key={day} className="w-20 text-xs font-bold text-gray-700 text-center">{day}</div>
+                  <div key={day} className="w-14 text-xs font-bold text-gray-700 text-center">{day}</div>
                 ))}
               </div>
               {monthNames.map((month, monthIndex) => (
@@ -913,8 +913,8 @@ export default function App() {
                     }) : [];
                     
                     return (
-                      <div key={day} className={`w-20 min-h-[60px] p-1 ${!isValidDay ? 'bg-gray-100' : ''}`}>
-                        <div className="flex flex-col gap-1">
+                      <div key={day} className={`w-14 p-0.5 ${!isValidDay ? 'bg-gray-100' : ''}`}>
+                        <div className="flex flex-col gap-0.5">
                           {watering.map((entry, idx) => {
                             const isWatering = entry.workTypes.includes('물주기');
                             const isFertilizer = entry.workTypes.includes('비료주기');
@@ -929,10 +929,10 @@ export default function App() {
                                       <button
                                         onClick={() => setTooltipInfo(tooltipInfo === tooltipId ? null : tooltipId)}
                                         onMouseLeave={() => setTooltipInfo(null)}
-                                        className={`w-full text-xs px-1 py-0.5 rounded text-white font-medium ${areaColors[area].replace('bg-', 'bg-')} ${
-                                          isWatering && isFertilizer ? 'border-2 border-solid border-l-dashed' :
-                                          isWatering ? 'border-2 border-solid border-gray-800' :
-                                          'border-2 border-dashed border-gray-800'
+                                        className={`w-full text-[10px] px-0.5 py-0.5 rounded text-white font-medium leading-tight ${areaColors[area].replace('bg-', 'bg-')} ${
+                                          isWatering && isFertilizer ? 'border border-solid border-l-dashed border-gray-800' :
+                                          isWatering ? 'border border-solid border-gray-800' :
+                                          'border border-dashed border-gray-800'
                                         } cursor-pointer hover:opacity-80 transition`}
                                       >
                                         {area}
